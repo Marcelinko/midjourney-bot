@@ -62,6 +62,16 @@ let bots = [
     new Bot("MTA2MDk2NTI0MDM3Mzc3NjQ5NA.GxQrxh.atWXOlwuKh8WpJrBDnhyrRjJiy0KYELapiexPk"),
 ];
 
+var bot = {
+    id: 1,
+    token: "MTA2MDk2NTI0MDM3Mzc3NjQ5NA.GxQrxh.atWXOlwuKh8WpJrBDnhyrRjJiy0KYELapiexPk",
+    sessionId: null,
+    jobs: [
+        {
+
+        }
+    ],
+}
 
 var job = {
     id: uuid.v4(),
