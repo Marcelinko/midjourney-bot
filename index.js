@@ -20,6 +20,35 @@ const channel_id = "1059500131428339873";
 //dodaj opcijo za vec botov in da se izbere kateri bot bo generiral sliko glede na queue posameznega bota
 //dodaj profanity filter
 
+const clients = [];
+const createClients = () => {
+    for (let i = 0; i < bots.length; i++) {
+        const client = new Client({ checkUpdate: false });
+        clients.push(client);
+    }
+}
+
+const bots = [
+    {
+        token: "MTA2MDk2NTI0MDM3Mzc3NjQ5NA.GxQrxh.atWXOlwuKh8WpJrBDnhyrRjJiy0KYELapiexPk",
+    }
+];
+
+createClients();
+
+
+
+const loginClients = () => {
+    for (let i = 0; i < clients.length; i++) {
+        clients[i].once('ready', () => {
+            console.log(`Logged in as ${clients[i].user.tag}`);
+            bots[i].id = i + 1;
+            bots[i].session_id = clients[i].sessionId;
+        });
+        clients[i].login(bots[i].token);
+    }
+}
+
 let jobs = [];
 let queue = [];
 //simulacija baze
@@ -189,5 +218,4 @@ client.on('messageCreate', async message => {
 //funkcija ki shrani url v bazo ko je slika generirana
 
 app.listen(PORT, () => console.log(`Server running on port: http://localhost:${PORT}`));
-client.once('ready', () => console.log(`Logged in as ${client.user.username}`));
-client.login(token);
+loginClients();
