@@ -251,7 +251,7 @@ app.post('/generate', (req, res) => {
     if (prompt.length > 100) return res.status(400).json({ error: 'Prompt too long' });
     const job = processJob(createJob(prompt.replace(/\*/g, '')));
 
-    return res.json({ job: job.id, status: job.status });
+    return res.json({ id: job.id, status: job.status });
 });
 
 app.get('/jobs/:id/status', (req, res) => {
