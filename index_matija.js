@@ -43,7 +43,7 @@ class Job {
 //selfbot accounts
 let bots = [
   new Bot(
-    "MTA2MDk2NTI0MDM3Mzc3NjQ5NA.GxQrxh.atWXOlwuKh8WpJrBDnhyrRjJiy0KYELapiexPk"
+    "MTA2MTYwNDcyMzMzOTMwOTA1Ng.Gl0xYM.v_UZgzQWVcz2HcUrwc4OSQSESvu7gRkvtBaiTI"
   ),
 ];
 
