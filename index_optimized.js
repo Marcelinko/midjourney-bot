@@ -11,9 +11,12 @@ app.use(bodyParser.urlencoded({ extended: false }));
 app.use(bodyParser.json());
 app.use(cors());
 
-var jobs = [];
-var queue = [];
 var clients = [];
+var queue = [];
+
+
+//simulacija baze
+var completedJobs = [];
 
 const createClients = () => {
     for (let i = 0; i < bots.length; i++) {
@@ -37,17 +40,25 @@ class Job {
 }
 
 class Bot {
-    constructor(token) {
+    constructor(token, channel) {
         this.token = token;
+        this.channel = channel;
+        this.jobs = [];
     }
     getToken() {
         return this.token;
     }
-    setId(id) {
-        this.id = id;
+    getChannel() {
+        return this.channel;
     }
-    getId() {
-        return this.id;
+    setJob(job) {
+        this.jobs.push(job);
+    }
+    removeJob(job) {
+        this.jobs = this.jobs.filter(j => j.prompt !== job.prompt);
+    }
+    getJobs() {
+        return this.jobs;
     }
     setSessionId(sessionId) {
         this.sessionId = sessionId;
@@ -57,9 +68,10 @@ class Bot {
     }
 }
 
-//selfbot accounts
+//selfbot accounts, each selfbot has its own channel
 let bots = [
-    new Bot("MTA2MDk2NTI0MDM3Mzc3NjQ5NA.GxQrxh.atWXOlwuKh8WpJrBDnhyrRjJiy0KYELapiexPk"),
+    new Bot("MTA2MDk2NTI0MDM3Mzc3NjQ5NA.GxQrxh.atWXOlwuKh8WpJrBDnhyrRjJiy0KYELapiexPk", "1061379178001342515"),
+    //new Bot("MTA1ODY5NzY0NDI3MDE2NjA2Nw.GslWzT.yTii4Zud7qo8LYXFhvNZi6N5FcvfHu-f47eG7I", "1061379237346562189"),
 ];
 
 
@@ -71,7 +83,6 @@ var job = {
     startTime: Date.now(),
     endTime: Date.now(),
     url: '',
-    botId: "1",
 }
 
 const loginClients = () => {
@@ -85,18 +96,30 @@ const loginClients = () => {
     }
 }
 
-const createJob = (prompt) => {
+//check if bot is available
+isBotAvailable = (bot, prompt) => {
+    //if bot has less than 3 jobs and the prompt is not already in jobs of bot
+    if (bot.getJobs() < 3 && !_.find(bot.getJobs(), { prompt: prompt })) {
+        return true;
+    }
+    return false;
+}
+
+//create job with prompt
+createJob = (prompt) => {
     const job = {
         id: uuid.v4(),
-        prompt,
+        prompt: prompt,
         status: "pending",
     }
-    //IN FUTURE CHECK IF CAPITAL LETTERS MATTER
+    return job;
+}
+
+//process job
+const processJob = (job) => {
     //check if there are any bots available
     for (let i = 0; i < bots.length; i++) {
-        if (_.find(jobs, { bot: bots[i].id }).length < 3 && !_.find(jobs, { prompt: prompt, status: "in progress" })) {
-            job.botId = bots[i].id;
-            jobs.push(job);
+        if (isBotAvailable(bots[i], job.prompt)) {
             startGeneration(job, bots[i]);
             return job;
         }
@@ -106,12 +129,38 @@ const createJob = (prompt) => {
     return job;
 }
 
-const nextJob = () => {
-
+const getJob = (id) => {
+    for (let i = 0; i < bots.length; i++) {
+        const job = _.find(bots[i].getJobs(), { id: id });
+        if (job) {
+            return job;
+        }
+        else {
+            let job = _.find(queue, { id: id });
+            if (job) {
+                return job;
+            }
+            else {
+                let job = _.find(completedJobs, { id: id });
+                if (job) {
+                    return job;
+                }
+            }
+        }
+    }
+    return null;
 }
 
-const completeJob = (job) => {
-
+const nextJob = () => {
+    for (let i = 0; i < queue.length; i++) {
+        for (let j = 0; j < bots.length; j++) {
+            if (isBotAvailable(bots[j], queue[i].prompt)) {
+                startGeneration(queue[i], bots[j]);
+                queue.splice(i, 1);
+                return;
+            }
+        }
+    }
 }
 
 const startGeneration = (job, bot) => {
@@ -119,7 +168,7 @@ const startGeneration = (job, bot) => {
         "type": 2,
         "application_id": "936929561302675456",
         "guild_id": "1059489287290245150",
-        "channel_id": "1059500131428339873",
+        "channel_id": bot.getChannel(),
         "session_id": bot.getSessionId(),
         "data": {
             "version": "994261739745050686",
@@ -176,12 +225,7 @@ const upscaleImage = (job, bot) => {
 }
 
 const getQueuePosition = (job) => {
-    //get position in queue
     return _.findIndex(queue, { id: job.id }) + 1;
-}
-
-const getJob = (id) => {
-    return _.find(jobs, { id: id });
 }
 
 const getStringBetween = (input) => {
@@ -202,13 +246,9 @@ app.post('/generate', async (req, res) => {
     const { prompt } = req.body;
     if (!prompt) return res.status(400).json({ error: 'No prompt provided' });
     if (prompt.length > 100) return res.status(400).json({ error: 'Prompt too long' });
-    const job = createJob(prompt.replace(/\*/g, ''));
-    //if no bot was available, return position in queue
-    if (!job.bot) {
-        let position = getQueuePosition(job);
-        return res.status(400).json({ job: job.id, status: job.status, position: position });
-    }
-    res.json({ id: job.id, status: job.status });
+    const job = processJob(createJob(prompt.replace(/\*/g, '')));
+
+    return res.status(400).json({ job: job.id, status: job.status });
 });
 
 app.get('/jobs/:id/status', async (req, res) => {
@@ -216,7 +256,11 @@ app.get('/jobs/:id/status', async (req, res) => {
     if (!id) return res.status(400).json({ error: 'No job id provided' });
 
     const job = getJob(id);
-    if (!job) return res.status(400).json({ error: 'Job with id ' + id + ' not found' });
+    //if job is not found, check if it is in completed jobs
+    if (!job) {
+        return res.status(400).json({ error: 'Job not found' });
+    }
+
     if (job.status === "pending") {
         let position = getQueuePosition(job);
         return res.json({ status: job.status, queue_position: position });
@@ -225,14 +269,33 @@ app.get('/jobs/:id/status', async (req, res) => {
         return res.json({ status: job.status });
     }
     else if (job.status === "completed") {
-        return res.json({ status: job.status, url: job.url });
+        return res.json({ status: job.status, image_url: job.image_url });
     }
+    res.json({ status: "error", message: "Something went wrong" });
 });
 
 clients[0].on('messageCreate', async message => {
     if (message.author.bot) {
-        console.log("Jobs length: " + jobs.length);
-        console.log("Queue length: " + queue.length);
+        for (let i = 0; i < bots.length; i++) {
+            if (bots[i].getChannel() === message.channelId) {
+                //means that the bot has sent the message so job has begun
+                if (_.some(bots[i].getJobs(), { prompt: getStringBetween(message.content) }) && _.some(bots[i].getJobs(), { status: "pending" })) {
+                    let jobIndex = _.findIndex(bots[i].getJobs(), { prompt: getStringBetween(message.content) });
+                    bots[i].jobs[jobIndex].status = "in progress";
+                    console.log("Job for " + message.content + " has begun!");
+                }
+                else if (_.some(bots[i].getJobs(), { prompt: getStringBetween(message.content) }) && _.some(bots[i].getJobs(), { status: "in progress" })) {
+                    let jobIndex = _.findIndex(bots[i].getJobs(), { prompt: getStringBetween(message.content) });
+                    bots[i].jobs[jobIndex].status = "completed";
+                    bots[i].jobs[jobIndex].image_url = message.attachments.first().url;
+                    completedJobs.push(bots[i].jobs[jobIndex]);
+                    console.log("Job for " + message.content + " is completed!");
+                    if (queue.length > 0) {
+                        nextJob();
+                    }
+                }
+            }
+        }
     }
 });
 

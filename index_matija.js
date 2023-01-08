@@ -39,6 +39,7 @@ class Job {
 class Bot {
     constructor(token) {
         this.token = token;
+        this.jobs = [];
     }
     getToken() {
         return this.token;
@@ -55,6 +56,9 @@ class Bot {
     getSessionId() {
         return this.sessionId;
     }
+    addJob(job) {
+        this.jobs.push(job);
+    }
 }
 
 //selfbot accounts
@@ -66,11 +70,7 @@ var bot = {
     id: 1,
     token: "MTA2MDk2NTI0MDM3Mzc3NjQ5NA.GxQrxh.atWXOlwuKh8WpJrBDnhyrRjJiy0KYELapiexPk",
     sessionId: null,
-    jobs: [
-        {
-
-        }
-    ],
+    jobs: [],
 }
 
 var job = {
