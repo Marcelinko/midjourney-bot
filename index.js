@@ -122,6 +122,29 @@ const processJob = (job) => {
     return job;
 }
 
+function getJobByPrompt(jobs, prompt) {
+    return _.find(jobs, { prompt: getStringBetween(prompt) });
+}
+
+function getJobIndexByPrompt(jobs, prompt) {
+    return jobs.findIndex(job => job.prompt === getStringBetween(prompt));
+}
+
+function updateJobStatus(bot, index, status) {
+    let job = bot.getJobs()[index];
+    job.status = status;
+    bot.getJobs()[index] = job;
+}
+
+function markJobCompleted(bot, index, message) {
+    let job = bot.getJobs()[index];
+    job.status = "completed";
+    job.messageId = message.id;
+    job.image_url = message.attachments.first().url;
+    completedJobs.push(job);
+    bot.removeJob(index);
+}
+
 const getJob = (id) => {
     for (let i = 0; i < bots.length; i++) {
         let job = _.find(bots[i].getJobs(), { id: id });
@@ -258,24 +281,20 @@ app.get('/jobs/:id/status', (req, res) => {
 clients[0].on('messageCreate', async message => {
     //means that midjourney has sent a message
     //if message author is midjourney bot
-    if (message.author.bot) {  
+    if (message.author.bot) {
         //we loop through selfbots
         bots.forEach(bot => {
             //if message is sent in the same channel as selfbot
             if (bot.getChannel() === message.channelId) {
-                let job = _.find(bot.getJobs(), { prompt: getStringBetween(message.content) });
-                let index = bot.getJobs().findIndex(job => job.prompt === getStringBetween(message.content));
+                let prompt = getStringBetween(message.content);
+                let job = getJobByPrompt(bot.getJobs(), prompt);
+                let index = getJobIndexByPrompt(bot.getJobs(), prompt);
                 if (job) {
                     if (job.status === "pending") {
-                        job.status = "in progress";
-                        bot.getJobs()[index] = job;
+                        updateJobStatus(bot, index, "in progress");
                     }
                     else if (job.status === "in progress") {
-                        job.status = "completed";
-                        job.messageId = message.id;
-                        job.image_url = message.attachments.first().url;
-                        completedJobs.push(job);
-                        bot.removeJob(index);
+                        markJobCompleted(bot, index, message);
                         if (queue.length > 0) {
                             processJob(queue[0]);
                         }
