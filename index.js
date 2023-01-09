@@ -18,6 +18,18 @@ var queue = [];
 //simulacija baze
 var completedJobs = [];
 
+//TODO: FIX THIS
+class Job {
+    constructor(id, prompt) {
+        this.id = id;
+        this.prompt = prompt;
+        this.status = "pending";
+        this.startTime = new Date();
+    }
+    setStatus(status) {
+        this.status = status;
+    }
+}
 
 class Bot {
     constructor(token, channel) {
@@ -31,11 +43,11 @@ class Bot {
     getChannel() {
         return this.channel;
     }
-    setJob(job) {
+    addJob(job) {
         this.jobs.push(job);
     }
-    removeJob(job) {
-        this.jobs = this.jobs.filter(j => j.prompt !== job.prompt);
+    removeJob(index) {
+        this.jobs.splice(index, 1);
     }
     getJobs() {
         return this.jobs;
@@ -65,29 +77,6 @@ createClients();
 
 const PORT = process.env.PORT || 3000;
 
-//TODO: FIX THIS
-class Job {
-    constructor(id, prompt, status, type) {
-        this.id = id;
-        this.prompt = prompt;
-        this.status = status;
-        this.type = type;
-    }
-}
-
-
-
-
-var job = {
-    id: uuid.v4(),
-    prompt: "test",
-    status: "pending",//pending means it is in queue, in progress means it is being generated, completed means it is done
-    type: "generation / upscale",
-    startTime: Date.now(),
-    endTime: Date.now(),
-    url: '',
-}
-
 const loginClients = () => {
     for (let i = 0; i < clients.length; i++) {
         clients[i].once('ready', () => {
@@ -99,21 +88,21 @@ const loginClients = () => {
 }
 
 //check if bot is available
-isBotAvailable = (bot, prompt) => {
+isBotAvailable = (bot, job) => {
     //if bot has less than 3 jobs and the prompt is not already in jobs of bot
-    if (bot.getJobs().length < 3 && !_.find(bot.getJobs(), { prompt: prompt })) {
+    if (bot.getJobs().length < 3 && !_.find(bot.getJobs(), { prompt: job.prompt })) {
+        console.log("Bot has " + bot.getJobs().length + " jobs");
+        console.log("Prompt was " + job.prompt);
         return true;
     }
+    console.log("Job with prompt " + job.prompt + " is already in progress");
     return false;
 }
 
 //create job with prompt
 createJob = (prompt) => {
-    const job = {
-        id: uuid.v4(),
-        prompt: prompt,
-        status: "pending",
-    }
+    const job = new Job(uuid.v4(), prompt);
+    console.log("Created a new job \n" + job);
     return job;
 }
 
@@ -121,9 +110,10 @@ createJob = (prompt) => {
 const processJob = (job) => {
     //check if there are any bots available
     for (let i = 0; i < bots.length; i++) {
-        if (isBotAvailable(bots[i], job.prompt)) {
-            bots[i].setJob(job);
+        if (isBotAvailable(bots[i], job)) {
+            bots[i].addJob(job);
             startGeneration(job, bots[i]);
+            console.log("Started generation " + job.prompt + " on bot " + i);
             return job;
         }
     }
@@ -152,18 +142,6 @@ const getJob = (id) => {
         }
     }
     return null;
-}
-
-const nextJob = () => {
-    for (let i = 0; i < queue.length; i++) {
-        for (let j = 0; j < bots.length; j++) {
-            if (isBotAvailable(bots[j], queue[i].prompt)) {
-                startGeneration(queue[i], bots[j]);
-                queue.splice(i, 1);
-                return;
-            }
-        }
-    }
 }
 
 const startGeneration = (job, bot) => {
@@ -249,7 +227,8 @@ app.post('/generate', (req, res) => {
     const { prompt } = req.body;
     if (!prompt) return res.status(400).json({ error: 'No prompt provided' });
     if (prompt.length > 100) return res.status(400).json({ error: 'Prompt too long' });
-    const job = processJob(createJob(prompt.replace(/\*/g, '')));
+    const job = createJob(prompt.replace(/\*/g, ''));
+    processJob(job);
 
     return res.json({ id: job.id, status: job.status });
 });
@@ -277,29 +256,33 @@ app.get('/jobs/:id/status', (req, res) => {
 });
 
 clients[0].on('messageCreate', async message => {
-    if (message.author.bot) {
-        for (let i = 0; i < bots.length; i++) {
-            //check if selfbot is in the same channel as the message
-            if (bots[i].getChannel() === message.channelId) {
-                //means that the bot has sent the message so job has begun
-                if (_.some(bots[i].getJobs(), { prompt: getStringBetween(message.content) }) && _.some(bots[i].getJobs(), { status: "pending" })) {
-                    let jobIndex = _.findIndex(bots[i].getJobs(), { prompt: getStringBetween(message.content) });
-                    bots[i].jobs[jobIndex].status = "in progress";
-                    console.log("Job for " + message.content + " has begun!");
-                }
-                //means that the bot has sent the message so job has been completed
-                else if (_.some(bots[i].getJobs(), { prompt: getStringBetween(message.content) }) && _.some(bots[i].getJobs(), { status: "in progress" })) {
-                    let jobIndex = _.findIndex(bots[i].getJobs(), { prompt: getStringBetween(message.content) });
-                    bots[i].jobs[jobIndex].status = "completed";
-                    bots[i].jobs[jobIndex].image_url = message.attachments.first().url;
-                    completedJobs.push(bots[i].jobs[jobIndex]);
-                    console.log("Job for " + message.content + " is completed!");
-                    if (queue.length > 0) {
-                        nextJob();
+    //means that midjourney has sent a message
+    //if message author is midjourney bot
+    if (message.author.bot) {  
+        //we loop through selfbots
+        bots.forEach(bot => {
+            //if message is sent in the same channel as selfbot
+            if (bot.getChannel() === message.channelId) {
+                let job = _.find(bot.getJobs(), { prompt: getStringBetween(message.content) });
+                let index = bot.getJobs().findIndex(job => job.prompt === getStringBetween(message.content));
+                if (job) {
+                    if (job.status === "pending") {
+                        job.status = "in progress";
+                        bot.getJobs()[index] = job;
+                    }
+                    else if (job.status === "in progress") {
+                        job.status = "completed";
+                        job.messageId = message.id;
+                        job.image_url = message.attachments.first().url;
+                        completedJobs.push(job);
+                        bot.removeJob(index);
+                        if (queue.length > 0) {
+                            processJob(queue[0]);
+                        }
                     }
                 }
             }
-        }
+        });
     }
 });
 
