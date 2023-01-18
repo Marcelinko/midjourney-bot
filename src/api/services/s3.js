@@ -1,5 +1,6 @@
 const AWS = require('aws-sdk');
 const util = require('util');
+
 const bucketName = process.env.AWS_BUCKET_NAME;
 
 const creds = new AWS.Credentials({
@@ -22,7 +23,6 @@ const uploadImage = async (imageName, buffer) => {
         if (!imageName || !buffer) {
             throw new Error('Missing required parameter: imageName or buffer');
         }
-        console.log(`Uploading image ${imageName} to S3 bucket ${bucketName}`);
 
         const params = {
             Bucket: bucketName,
@@ -43,14 +43,12 @@ const getImageUrl = async (imageName) => {
         if (!imageName) {
             throw new Error('Missing required parameter: imageName');
         }
-        console.log(`Creating link for image ${imageName} from S3 bucket ${bucketName}`);
         const params = {
             Bucket: bucketName,
             Key: imageName,
             Expires: 14400
         };
         const imageUrl = await _getImageUrl('getObject', params);
-        console.log(`Link for image ${imageName} generated: ${imageUrl}`);
         return imageUrl;
     }
     catch (err) {
