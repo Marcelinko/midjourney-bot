@@ -18,6 +18,8 @@ const s3 = new AWS.S3();
 const _uploadImage = util.promisify(s3.upload).bind(s3);
 const _getImageUrl = util.promisify(s3.getSignedUrl).bind(s3);
 
+
+//IMPLEMENT CUSTOM Error object
 const uploadImage = async (imageName, buffer) => {
     try {
         if (!imageName || !buffer) {

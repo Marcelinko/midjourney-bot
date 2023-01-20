@@ -1,4 +1,4 @@
-export default class ErrorObject extends Error {
+module.exports = class ErrorObject extends Error {
     constructor(err){
         super();
         this.message = err.message;

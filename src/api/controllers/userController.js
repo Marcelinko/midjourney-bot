@@ -1,27 +1,23 @@
 const db = require('../services/db');
 const validation = require('../helpers/validation');
-const auth = require('../auth/auth');
 
-const registerUser = async (req, res, next) => {
-    const { displayName, email, password } = req.body;
+const registerUser = async (req, res) => {
+    const { display_name, email, password } = req.body;
     try {
-        const validated = await validation.authSchema.validateAsync(req.body);
-        const user = await db.createUser(displayName, email, password);
-        res.status(201).json(user);
-    }
-    catch (err) {
-        res.status(err.statusCode).json({ error: err.message });
-    }
-}
+        await validation.registerSchema.validateAsync(req.body);
+        const user = await db.createUser(display_name, email, password);
+        const jwt = require('jsonwebtoken');
+        const emailToken = jwt.sign({ _id: user._id }, process.env.EMAIL_TOKEN_SECRET, {
+            expiresIn: '1d'
+        });
 
-const loginUser = async (req, res, next) => {
-    const {email, password} = req.body;
-    try{
-        const validated = await validation.authSchema.validateAsync(req.body);
-        
-    }
-    catch(err){
-        
+        console.log(emailToken);
+        res.status(201).json(user);
+    } catch (err) {
+        if (err.isJoi) {
+            return res.status(400).json({ error: err.message });
+        }
+        res.status(err.statusCode).json({ error: err.message });
     }
 }
 

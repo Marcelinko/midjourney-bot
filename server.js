@@ -43,7 +43,6 @@ app.use(express.json());
 app.use(cors());
 
 const url = 'mongodb://localhost:27017';
-const databaseName = 'midjourney';
 
 var clients = [];
 var queue = [];
@@ -245,96 +244,18 @@ const getStringBetween = (input) => {
     return '';
 }
 
-const authenticate = async (req, res, next) => {
-    try {
-        const accessToken = req.header('Authorization');
-        if (!accessToken) return res.status(401).json({ error: 'No access token provided' });
-        const client = await MongoClient.connect(url);
-        const users = client.db("testDb").collection("users");
-        const decoded = jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
-        const user = await users.findOne({ _id: ObjectId(decoded.id) });
-        await client.close();
-        if (!user) return res.status(404).json({ error: 'User not found' });
-        req.user = user;
-        next();
-    }
-    catch (err) {
-        res.status(401).json({ error: 'Invalid access token / Access token expired' });
-    }
-}
+const {authenticate, loginUser, logoutUser, refreshToken, verifyEmail } = require('./src/api/controllers/authController');
+const { registerUser } = require('./src/api/controllers/userController');
 
-app.post('/login', async (req, res) => {
-    const { username, password } = req.body;
-    try {
-        const refreshTokens = client.db("testDb").collection("refresh_tokens");
-        const user = await users.findOne({ username });
-        if (!user) return res.status(404).json({ error: 'User not found' });
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid) return res.status(401).json({ error: 'Invalid password' });
-        const accessToken = generateAccessToken(user);
-        const refreshToken = generateRefreshToken(user);
-        await refreshTokens.updateOne({ username }, { $set: { refresh_token: refreshToken } }, { upsert: true });
-        await client.close();
-        res.status(200).json({ username, access_token: accessToken, refresh_token: refreshToken });
-    }
-    catch (err) {
-        res.status(500).json({ error: err });
-    }
+app.post('/register', registerUser);
+app.post('/login', loginUser);
+app.post('/logout', logoutUser);
+app.post('/refresh-token', refreshToken);
+app.get('/confirmation/:token', verifyEmail);
+
+app.get('/test', authenticate, (req, res) =>{
+    res.send("Ok");
 });
-
-app.post('/logout', authenticate, async (req, res) => {
-    const {username, refresh_token } = req.body;
-    if (!refresh_token) return res.status(401).json({ error: 'No refresh token provided' });
-    try {
-        const client = await MongoClient.connect(url);
-        const refreshTokens = client.db("testDb").collection("refresh_tokens");
-        const token = await refreshTokens.findOne({ username });
-        if (!token) return res.status(403).json({ error: 'Refresh token not found' })
-        if(refresh_token != token.refresh_token) return res.status(400).json({error: 'Invalid refresh token'});
-        refreshTokens.deleteOne({username});
-        res.send({message: 'Successfully logged out'});
-    }
-    catch (err) {
-        res.status(500).json({error: err});
-    }
-});
-
-const generateAccessToken = (user) => {
-    return jwt.sign({ id: user._id }, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: '15m'
-    });
-}
-const generateRefreshToken = (user) => {
-    return jwt.sign({ id: user._id }, process.env.REFRESH_TOKEN_SECRET, {
-        expiresIn: '30d'
-    });
-}
-
-app.post("/refresh-token", async (req, res) => {
-    const {username, refreshToken } = req.body;
-    if (!refreshToken) return res.status(401).json({ error: 'No refresh token provided' });
-    try {
-        const client = await MongoClient.connect(url);
-        const refreshTokens = client.db("testDb").collection("refresh_tokens");
-        const token = await refreshTokens.findOne({ username });
-        if (!token) return res.status(403).json({ error: 'Refresh token not found' });
-        if(refreshToken != token.refresh_token) return res.status(400).json({error: 'Invalid refresh token'});
-        const decoded = jwt.verify(token.refresh_token, process.env.REFRESH_TOKEN_SECRET);
-        const newAccessToken = generateAccessToken(decoded);
-        await client.close();
-        res.status(200).json({ accessToken: newAccessToken })
-    }
-    catch (err) {
-        res.status(500).json({ error: err });
-    }
-})
-
-app.post('/test', authenticate, async (req, res) => {
-    console.log(req.user._id);
-    return res.send("ok");
-});
-
-
 
 
 app.post('/generate', (req, res) => {
@@ -346,9 +267,6 @@ app.post('/generate', (req, res) => {
 
     return res.json({ job_id: job.job_id, status: job.status });
 });
-
-
-
 
 function extractUUID(str) {
     // Use a regular expression to match the UUID
