@@ -244,16 +244,19 @@ const getStringBetween = (input) => {
     return '';
 }
 
-const {authenticate, loginUser, logoutUser, refreshToken, verifyEmail } = require('./src/api/controllers/authController');
-const { registerUser } = require('./src/api/controllers/userController');
+const { authenticate, registerUser, loginUser, logoutUser, refreshToken, resetPassword, verifyEmail, forgotPassword, logoutUserAllDevices } = require('./src/api/controllers/authController');
 
 app.post('/register', registerUser);
 app.post('/login', loginUser);
-app.post('/logout', logoutUser);
+app.delete('/logout', authenticate, logoutUser);
+app.delete('/logout-all', authenticate, logoutUserAllDevices);
 app.post('/refresh-token', refreshToken);
-app.get('/confirmation/:token', verifyEmail);
+app.post('/change-password');
+app.post('/forgot-password', forgotPassword);
+app.post('/reset-password/:user_id/:token', resetPassword);
+app.get('/verify/:token', verifyEmail);
 
-app.get('/test', authenticate, (req, res) =>{
+app.get('/test', authenticate, (req, res) => {
     res.send("Ok");
 });
 

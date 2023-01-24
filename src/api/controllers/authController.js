@@ -2,6 +2,7 @@ const db = require('../services/db');
 const validation = require('../helpers/validation');
 const auth = require('../auth/auth');
 const { validatePassword } = require('../helpers/encryption');
+const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/nodemailer');
 
 const authenticate = async (req, res, next) => {
     try {
@@ -18,6 +19,21 @@ const authenticate = async (req, res, next) => {
     }
 }
 
+const registerUser = async (req, res) => {
+    const { display_name, email, password } = req.body;
+    try {
+        await validation.registerSchema.validateAsync(req.body);
+        const user = await db.createUser(display_name, email, password);
+        await sendVerificationEmail(user);
+        res.status(201).json(user);
+    } catch (err) {
+        if (err.isJoi) {
+            return res.status(400).json({ error: err.message });
+        }
+        res.status(err.statusCode).json({ error: err.message });
+    }
+}
+
 const loginUser = async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -27,13 +43,9 @@ const loginUser = async (req, res) => {
         if (!isPasswordValid) {
             return res.status(401).json({ error: 'Incorrect password' });
         }
-        const isUserVerified = user.verified;
-        if (!isUserVerified) {
-            return res.status(401).json({ error: 'Please verify your email' });
-        }
         const accessToken = auth.generateAccessToken(user);
         const refreshToken = auth.generateRefreshToken(user);
-        await db.setRefreshToken(user._id, refreshToken);
+        await db.createRefreshToken(user._id, refreshToken);
         res.status(200).json({ user_id: user._id, access_token: accessToken, refresh_token: refreshToken });
     }
     catch (err) {
@@ -44,15 +56,46 @@ const loginUser = async (req, res) => {
     }
 }
 
+const forgotPassword = async (req, res) => {
+    const { email } = req.body;
+    try {
+        await validation.emailSchema.validateAsync(req.body);
+        const user = await db.getUserByEmail(email);
+        await sendPasswordResetEmail(user);
+        res.status(200).json({ message: 'Reset link sent to email' });
+    } catch (err) {
+        if (err.isJoi) {
+            return res.status(400).json({ error: err.message });
+        }
+        res.status(err.statusCode).json({ error: err.message });
+    }
+}
+
+const resetPassword = async (req, res) => {
+    const { user_id, token } = req.params;
+    const { password } = req.body;
+    try {
+        await validation.newPasswordSchema.validateAsync(req.body);
+        const user = await db.getUserById(user_id);
+        auth.validatePasswordResetToken(token, user);
+        await db.updatePassword(user_id, password);
+        res.status(200).json({ message: 'Password successfuly updated' });
+    } catch (err) {
+        if (err.name === 'JsonWebTokenError') {
+            return res.status(401).json({ error: 'Invalid token' });
+        }
+        if (err.isJoi) {
+            return res.status(400).json({ error: err.message });
+        }
+        res.status(err.statusCode).json({ error: err.message });
+    }
+}
+
 const logoutUser = async (req, res) => {
-    const { user_id, refresh_token } = req.body;
+    const { refresh_token } = req.body;
     try {
         await validation.refreshTokenSchema.validateAsync(req.body);
-        const tokenObject = await db.getRefreshToken(user_id);
-        if (tokenObject.refresh_token != refresh_token) {
-            return res.status(401).json({ error: 'Invalid refresh token' });
-        }
-        await db.deleteRefreshToken(refresh_token);
+        await db.deleteRefreshToken(req.user._id, refresh_token);
         res.status(200).json({ messsage: 'Successfully logged out' });
     }
     catch (err) {
@@ -63,13 +106,26 @@ const logoutUser = async (req, res) => {
     }
 }
 
+const logoutUserAllDevices = async (req, res) => {
+    try {
+        await db.deleteRefreshTokens(req.user._id);
+        res.status(200).json({ messsage: 'Successfully logged out from all devices' });
+    }
+    catch (err) {
+        if (err.isJoi) {
+            return res.status(400).json({ error: err.message });
+        }
+        res.status(err.statusCode).json({ error: err.message });
+    }
+}
+
 const refreshToken = async (req, res) => {
-    const { user_id, refresh_token } = req.body;
+    const { refresh_token } = req.body;
     try {
         await validation.refreshTokenSchema.validateAsync(req.body);
-        const tokenObject = await db.getRefreshToken(user_id);
-        if (tokenObject.refresh_token != refresh_token) {
-            return res.status(401).json({ error: 'Invalid refresh token' });
+        const tokenObject = await db.getRefreshToken(refresh_token);
+        if(!tokenObject){
+            return res.status(400).json({error: 'Invalid refresh token'});
         }
         const decoded = auth.validateRefreshToken(refresh_token);
         const newAccessToken = auth.generateAccessToken(decoded);
@@ -86,20 +142,26 @@ const refreshToken = async (req, res) => {
 const verifyEmail = async (req, res) => {
     try {
         const token = req.params.token;
-        const decoded = auth.verifyEmail(token);
+        const decoded = auth.validateEmailToken(token);
         await db.verifyUser(decoded._id);
-        res.status(200).json({message: 'Email verified'});
-        //return res.redirect('https://localhost:3001/login');
+        res.status(200).json({ message: 'Email verified' });
     }
     catch (err) {
-        res.status(400).json({ error: 'Could not verify email' });
+        if (err.name === 'JsonWebTokenError') {
+            return res.status(401).json({ error: 'Invalid token' });
+        }
+        res.status(err.statusCode).json({ error: err.message });
     }
 }
 
 module.exports = {
     authenticate,
+    registerUser,
     loginUser,
+    forgotPassword,
+    resetPassword,
     logoutUser,
+    logoutUserAllDevices,
     refreshToken,
     verifyEmail,
 }
