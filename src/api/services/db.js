@@ -5,12 +5,17 @@ const ErrorObject = require('../helpers/error');
 const User = require('../models/User');
 const { encryptPassword } = require('../helpers/encryption');
 
-const createUser = async (displayName, email, password) => {
+/*
+Ce se prvo registriramo z emailom in geslom, se v bazi ustvari nov uporabnik... ko se poskusamo
+prijaviti z googleom nas sistem prepozna kot obstojecega uporabnika in nam ne ustvari novega ampak nam generira
+access token in refresh token
+ */
+const createUserEmailPassword = async (displayName, email, password) => {
     try {
         const client = await MongoClient.connect(db.url);
         const usersCollection = client.db(db.name).collection('users');
-        const isEmailInUse = await usersCollection.findOne({ email });
-        if (isEmailInUse) {
+        const userExists = await usersCollection.findOne({ email });
+        if (userExists) {
             await client.close();
             throw new ErrorObject({
                 message: 'User already exists',
@@ -19,6 +24,27 @@ const createUser = async (displayName, email, password) => {
         }
         const hashedPassword = await encryptPassword(password);
         const result = await usersCollection.insertOne({ display_name: displayName, email, password: hashedPassword, tokens: 3, verified: false });
+        await client.close();
+        return new User(result.insertedId, displayName, email);
+    }
+    catch (err) {
+        throw new ErrorObject({
+            message: err.message,
+            statusCode: err.statusCode
+        });
+    }
+}
+
+const createUserGoogle = async (displayName, email) => {
+    try {
+        const client = await MongoClient.connect(db.url);
+        const usersCollection = client.db(db.name).collection('users');
+        const user = await usersCollection.findOne({ email });
+        if (user) {
+            await client.close();
+            return new User(user._id, user.display_name, user.email);
+        }
+        const result = await usersCollection.insertOne({ display_name: displayName, email, tokens: 3, verified: true });
         await client.close();
         return new User(result.insertedId, displayName, email);
     }
@@ -96,7 +122,7 @@ const createRefreshToken = async (user_id, refreshToken) => {
     try {
         const client = await MongoClient.connect(db.url);
         const refreshTokensCollection = client.db(db.name).collection('refresh_tokens');
-        await refreshTokensCollection.insertOne({ user_id, refresh_token: refreshToken });
+        await refreshTokensCollection.insertOne({ user_id, refresh_token: refreshToken, createdAt: new Date() });
         await client.close();
     }
     catch (err) {
@@ -198,7 +224,8 @@ const verifyUser = async (user_id) => {
 }
 
 module.exports = {
-    createUser,
+    createUserEmailPassword,
+    createUserGoogle,
     updatePassword,
     getUserByEmail,
     getUserById,

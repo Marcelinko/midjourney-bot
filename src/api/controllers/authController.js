@@ -4,6 +4,7 @@ const auth = require('../auth/auth');
 const { validatePassword } = require('../helpers/encryption');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../services/nodemailer');
 
+//Middleware to authenticate user
 const authenticate = async (req, res, next) => {
     try {
         const accessToken = req.header('Authorization');
@@ -19,11 +20,12 @@ const authenticate = async (req, res, next) => {
     }
 }
 
+//Register user with email and password
 const registerUser = async (req, res) => {
     const { display_name, email, password } = req.body;
     try {
         await validation.registerSchema.validateAsync(req.body);
-        const user = await db.createUser(display_name, email, password);
+        const user = await db.createUserEmailPassword(display_name, email, password);
         await sendVerificationEmail(user);
         res.status(201).json(user);
     } catch (err) {
@@ -34,7 +36,8 @@ const registerUser = async (req, res) => {
     }
 }
 
-const loginUser = async (req, res) => {
+//Login user with email and password
+const loginUserEmailPassword = async (req, res) => {
     const { email, password } = req.body;
     try {
         await validation.loginSchema.validateAsync(req.body);
@@ -46,7 +49,7 @@ const loginUser = async (req, res) => {
         const accessToken = auth.generateAccessToken(user);
         const refreshToken = auth.generateRefreshToken(user);
         await db.createRefreshToken(user._id, refreshToken);
-        res.status(200).json({ user_id: user._id, access_token: accessToken, refresh_token: refreshToken });
+        res.status(200).json({ user_id: user._id, display_name: user.display_name, access_token: accessToken, refresh_token: refreshToken });
     }
     catch (err) {
         if (err.isJoi) {
@@ -56,6 +59,24 @@ const loginUser = async (req, res) => {
     }
 }
 
+//Login user with google account
+const loginUserGoogle = async (req, res) => {
+    const { idToken } = req.body;
+    if (!idToken) return res.status(400).json({ error: 'No id token provided' });
+    try {
+        const decoded = await auth.validateGoogleToken(idToken);
+        const user = await db.createUserGoogle(decoded.name, decoded.email);
+        const accessToken = auth.generateAccessToken(user);
+        const refreshToken = auth.generateRefreshToken(user);
+        await db.createRefreshToken(user._id, refreshToken);
+        res.status(200).json({ user_id: user._id, display_name: user.display_name, access_token: accessToken, refresh_token: refreshToken });
+    }
+    catch (err) {
+        res.json({ error: err.message });
+    }
+}
+
+//Send email with reset password link
 const forgotPassword = async (req, res) => {
     const { email } = req.body;
     try {
@@ -71,6 +92,7 @@ const forgotPassword = async (req, res) => {
     }
 }
 
+//Reset password
 const resetPassword = async (req, res) => {
     const { user_id, token } = req.params;
     const { password } = req.body;
@@ -81,9 +103,6 @@ const resetPassword = async (req, res) => {
         await db.updatePassword(user_id, password);
         res.status(200).json({ message: 'Password successfuly updated' });
     } catch (err) {
-        if (err.name === 'JsonWebTokenError') {
-            return res.status(401).json({ error: 'Invalid token' });
-        }
         if (err.isJoi) {
             return res.status(400).json({ error: err.message });
         }
@@ -91,6 +110,7 @@ const resetPassword = async (req, res) => {
     }
 }
 
+//Logout user from current device
 const logoutUser = async (req, res) => {
     const { refresh_token } = req.body;
     try {
@@ -106,6 +126,7 @@ const logoutUser = async (req, res) => {
     }
 }
 
+//Logout user from all devices TODO: Change user _id in order to invalidate all tokens
 const logoutUserAllDevices = async (req, res) => {
     try {
         await db.deleteRefreshTokens(req.user._id);
@@ -119,13 +140,14 @@ const logoutUserAllDevices = async (req, res) => {
     }
 }
 
+//Refresh access token
 const refreshToken = async (req, res) => {
     const { refresh_token } = req.body;
     try {
         await validation.refreshTokenSchema.validateAsync(req.body);
         const tokenObject = await db.getRefreshToken(refresh_token);
-        if(!tokenObject){
-            return res.status(400).json({error: 'Invalid refresh token'});
+        if (!tokenObject) {
+            return res.status(400).json({ error: 'Invalid refresh token' });
         }
         const decoded = auth.validateRefreshToken(refresh_token);
         const newAccessToken = auth.generateAccessToken(decoded);
@@ -139,6 +161,7 @@ const refreshToken = async (req, res) => {
     }
 }
 
+//Verify email
 const verifyEmail = async (req, res) => {
     try {
         const token = req.params.token;
@@ -147,9 +170,6 @@ const verifyEmail = async (req, res) => {
         res.status(200).json({ message: 'Email verified' });
     }
     catch (err) {
-        if (err.name === 'JsonWebTokenError') {
-            return res.status(401).json({ error: 'Invalid token' });
-        }
         res.status(err.statusCode).json({ error: err.message });
     }
 }
@@ -157,11 +177,12 @@ const verifyEmail = async (req, res) => {
 module.exports = {
     authenticate,
     registerUser,
-    loginUser,
+    loginUserEmailPassword,
+    loginUserGoogle,
     forgotPassword,
     resetPassword,
     logoutUser,
     logoutUserAllDevices,
     refreshToken,
-    verifyEmail,
+    verifyEmail
 }

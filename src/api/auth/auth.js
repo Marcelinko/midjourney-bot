@@ -1,43 +1,128 @@
 const jwt = require('jsonwebtoken');
+const googleAuth = require('google-auth-library');
+const ErrorObject = require('../helpers/error');
+const OAuth2Client = new googleAuth.OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const generateAccessToken = (user) => {
-    return jwt.sign({ _id: user._id }, process.env.ACCESS_TOKEN_SECRET, {
-        expiresIn: '5m'
-    });
+    try {
+        return jwt.sign({ _id: user._id }, process.env.ACCESS_TOKEN_SECRET, {
+            expiresIn: '5m'
+        });
+    }
+    catch (err) {
+        throw new ErrorObject({
+            message: 'Error while generating access token',
+            statusCode: 401
+        });
+    }
 }
 const generateRefreshToken = (user) => {
-    return jwt.sign({ _id: user._id }, process.env.REFRESH_TOKEN_SECRET, {
-        expiresIn: '30d'
-    });
+    try {
+        return jwt.sign({ _id: user._id }, process.env.REFRESH_TOKEN_SECRET, {
+            expiresIn: '30d'
+        });
+    }
+    catch (err) {
+        throw new ErrorObject({
+            message: 'Error while generating refresh token',
+            statusCode: 401
+        });
+    }
 }
 
 const generateEmailToken = (user) => {
-    return jwt.sign({ _id: user._id }, process.env.EMAIL_TOKEN_SECRET, {
-        expiresIn: '7d'
-    });
+    try {
+        return jwt.sign({ _id: user._id }, process.env.EMAIL_TOKEN_SECRET, {
+            expiresIn: '7d'
+        });
+    }
+    catch (err) {
+        throw new ErrorObject({
+            message: 'Error while generating email verification token',
+            statusCode: 401
+        });
+    }
 }
 
 const generatePasswordResetToken = (user) => {
-    return jwt.sign({ _id: user._id, email: user.email }, process.env.PASSWORD_TOKEN_SECRET + user.password, {
-        expiresIn: '10m'
-    });
+    try {
+        return jwt.sign({ _id: user._id, email: user.email }, process.env.PASSWORD_TOKEN_SECRET + user.password, {
+            expiresIn: '10m'
+        });
+    }
+    catch (err) {
+        throw new ErrorObject({
+            message: 'Error while generating password reset token',
+            statusCode: 401
+        });
+    }
 }
 
 const validateAccessToken = (accessToken) => {
-    return jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
+    try {
+        return jwt.verify(accessToken, process.env.ACCESS_TOKEN_SECRET);
+    }
+    catch (err) {
+        throw new ErrorObject({
+            message: 'Access token is invalid or expired',
+            statusCode: 401
+        });
+    }
 }
 
 const validateRefreshToken = (refreshToken) => {
-    return jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+    try {
+        return jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+    }
+    catch (err) {
+        throw new ErrorObject({
+            message: 'Refresh token is invalid or expired',
+            statusCode: 401
+        });
+    }
 }
 
 const validateEmailToken = (emailToken) => {
-    return jwt.verify(emailToken, process.env.EMAIL_TOKEN_SECRET);
+    try {
+        return jwt.verify(emailToken, process.env.EMAIL_TOKEN_SECRET);
+    }
+    catch (err) {
+        throw new ErrorObject({
+            message: 'Verification token is invalid or expired',
+            statusCode: 401
+        });
+    }
 }
 
 const validatePasswordResetToken = (passwordToken, user) => {
-    return jwt.verify(passwordToken, process.env.PASSWORD_TOKEN_SECRET + user.password);
+    try {
+        return jwt.verify(passwordToken, process.env.PASSWORD_TOKEN_SECRET + user.password);
+    }
+    catch (err) {
+        throw new ErrorObject({
+            message: 'Access token is invalid or expired',
+            statusCode: 401
+        });
+    }
 }
+
+const validateGoogleToken = async (idToken) => {
+    try {
+        const ticket = await OAuth2Client.verifyIdToken({
+            idToken: idToken,
+            audience: process.env.GOOGLE_CLIENT_ID
+        });
+        return ticket.getPayload();
+    }
+    catch (err) {
+        throw new ErrorObject({
+            message: 'Google token is invalid or expired',
+            statusCode: 401
+        });
+    }
+}
+
+//Add try catch to all functions, so you don't have to check if error comes from here in controller
 
 module.exports = {
     generateAccessToken,
@@ -47,5 +132,6 @@ module.exports = {
     validateAccessToken,
     validateRefreshToken,
     validateEmailToken,
-    validatePasswordResetToken
+    validatePasswordResetToken,
+    validateGoogleToken
 }

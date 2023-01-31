@@ -7,12 +7,11 @@ const cors = require('cors');
 const Jimp = require('jimp');
 const { MongoClient, ObjectId } = require('mongodb');
 const moment = require('moment');
-const jwt = require('jsonwebtoken');
 const Bottleneck = require('bottleneck');
-const bcrypt = require('bcrypt');
 const Bot = require('./src/api/models/Bot');
 const Job = require('./src/api/models/Job');
 const s3 = require('./src/api/services/s3');
+
 
 const limiter = new Bottleneck({
     maxConcurrent: 1,
@@ -40,7 +39,9 @@ setInterval(() => {
 
 const app = express();
 app.use(express.json());
-app.use(cors());
+app.use(cors({
+    origin: 'http://localhost:3001',
+}));
 
 const url = 'mongodb://localhost:27017';
 
@@ -244,17 +245,21 @@ const getStringBetween = (input) => {
     return '';
 }
 
-const { authenticate, registerUser, loginUser, logoutUser, refreshToken, resetPassword, verifyEmail, forgotPassword, logoutUserAllDevices } = require('./src/api/controllers/authController');
+const { authenticate, registerUser, loginUserEmailPassword, logoutUser, refreshToken, resetPassword, verifyEmail, forgotPassword, logoutUserAllDevices, loginUserGoogle } = require('./src/api/controllers/authController');
+const { createCheckoutSession } = require('./src/api/controllers/stripeController');
 
+//this should be under auth/google, login, register...
 app.post('/register', registerUser);
-app.post('/login', loginUser);
+app.post('/google', loginUserGoogle);
+app.post('/login', loginUserEmailPassword);
 app.delete('/logout', authenticate, logoutUser);
 app.delete('/logout-all', authenticate, logoutUserAllDevices);
 app.post('/refresh-token', refreshToken);
-app.post('/change-password');
 app.post('/forgot-password', forgotPassword);
 app.post('/reset-password/:user_id/:token', resetPassword);
 app.get('/verify/:token', verifyEmail);
+
+app.post('/checkout', createCheckoutSession);
 
 app.get('/test', authenticate, (req, res) => {
     res.send("Ok");
