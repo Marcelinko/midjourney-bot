@@ -12,7 +12,7 @@ const generateAccessToken = (user) => {
     catch (err) {
         throw new ErrorObject({
             message: 'Error while generating access token',
-            statusCode: 401
+            statusCode: 500
         });
     }
 }
@@ -25,7 +25,7 @@ const generateRefreshToken = (user) => {
     catch (err) {
         throw new ErrorObject({
             message: 'Error while generating refresh token',
-            statusCode: 401
+            statusCode: 500
         });
     }
 }
@@ -39,7 +39,7 @@ const generateEmailToken = (user) => {
     catch (err) {
         throw new ErrorObject({
             message: 'Error while generating email verification token',
-            statusCode: 401
+            statusCode: 500
         });
     }
 }
@@ -53,7 +53,7 @@ const generatePasswordResetToken = (user) => {
     catch (err) {
         throw new ErrorObject({
             message: 'Error while generating password reset token',
-            statusCode: 401
+            statusCode: 500
         });
     }
 }
@@ -112,7 +112,21 @@ const validateGoogleToken = async (idToken) => {
             idToken: idToken,
             audience: process.env.GOOGLE_CLIENT_ID
         });
-        return ticket.getPayload();
+        const payload = ticket.getPayload();
+        if(payload.aud !== process.env.GOOGLE_CLIENT_ID){
+            throw new ErrorObject({
+                message: 'The audience does not match the client ID',
+                statusCode: 401
+            });
+        }
+        if(payload.iss !== 'accounts.google.com')
+        {
+            throw new ErrorObject({
+                message: 'The issuer is not Google',
+                statusCode: 401
+            });
+        }
+        return payload;
     }
     catch (err) {
         throw new ErrorObject({
@@ -122,7 +136,6 @@ const validateGoogleToken = async (idToken) => {
     }
 }
 
-//Add try catch to all functions, so you don't have to check if error comes from here in controller
 
 module.exports = {
     generateAccessToken,

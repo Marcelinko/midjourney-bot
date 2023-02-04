@@ -392,6 +392,7 @@ const insertJob = async (job) => {
 clients[0].on('messageCreate', async message => {
     //if message author is midjourney bot
     if (message.author.bot) {
+        console.dir(message);
         //we loop through selfbots
         bots.forEach(bot => {
             //if message is sent in the same channel as selfbot

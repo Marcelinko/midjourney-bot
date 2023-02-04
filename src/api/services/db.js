@@ -206,6 +206,13 @@ const verifyUser = async (user_id) => {
         const client = await MongoClient.connect(db.url);
         const usersCollection = client.db(db.name).collection('users');
         const user = await usersCollection.findOne({ _id: ObjectId(user_id) });
+        if (!user) {
+            await client.close();
+            throw new ErrorObject({
+                message: 'User not found',
+                statusCode: 404
+            });
+        }
         if (user.verified) {
             throw new ErrorObject({
                 message: 'Email already verified',

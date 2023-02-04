@@ -42,6 +42,9 @@ const loginUserEmailPassword = async (req, res) => {
     try {
         await validation.loginSchema.validateAsync(req.body);
         const user = await db.getUserByEmail(email);
+        if (!user.password) {
+            return res.status(401).json({ error: 'This account requires password, but no password is associated with this account. Please Log in using your Google account' });
+        }
         const isPasswordValid = await validatePassword(password, user.password);
         if (!isPasswordValid) {
             return res.status(401).json({ error: 'Incorrect password' });
@@ -61,10 +64,10 @@ const loginUserEmailPassword = async (req, res) => {
 
 //Login user with google account
 const loginUserGoogle = async (req, res) => {
-    const { idToken } = req.body;
-    if (!idToken) return res.status(400).json({ error: 'No id token provided' });
+    const { id_token } = req.body;
+    if (!id_token) return res.status(400).json({ error: 'No id token provided' });
     try {
-        const decoded = await auth.validateGoogleToken(idToken);
+        const decoded = await auth.validateGoogleToken(id_token);
         const user = await db.createUserGoogle(decoded.name, decoded.email);
         const accessToken = auth.generateAccessToken(user);
         const refreshToken = auth.generateRefreshToken(user);
@@ -82,6 +85,9 @@ const forgotPassword = async (req, res) => {
     try {
         await validation.emailSchema.validateAsync(req.body);
         const user = await db.getUserByEmail(email);
+        if (!user) {
+            return res.status(404).json({ error: 'User with this email does not exist' });
+        }
         await sendPasswordResetEmail(user);
         res.status(200).json({ message: 'Reset link sent to email' });
     } catch (err) {
@@ -126,7 +132,7 @@ const logoutUser = async (req, res) => {
     }
 }
 
-//Logout user from all devices TODO: Change user _id in order to invalidate all tokens
+//Logout user from all devices, send message that it may take up to 5 minutes to logout from all devices
 const logoutUserAllDevices = async (req, res) => {
     try {
         await db.deleteRefreshTokens(req.user._id);
