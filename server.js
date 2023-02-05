@@ -6,11 +6,11 @@ const axios = require('axios');
 const cors = require('cors');
 const Jimp = require('jimp');
 const { MongoClient, ObjectId } = require('mongodb');
-const moment = require('moment');
 const Bottleneck = require('bottleneck');
-const Bot = require('./src/api/models/Bot');
 const Job = require('./src/api/models/Job');
 const s3 = require('./src/api/services/s3');
+
+const discord = require('./src/api/services/discord');
 
 
 const limiter = new Bottleneck({
@@ -18,24 +18,24 @@ const limiter = new Bottleneck({
     minTime: 5000
 });
 
-setInterval(() => {
-    bots.forEach(bot => {
-        const jobs = bot.getJobs();
-        for (let i = 0; i < jobs.length; i++) {
-            const job = jobs[i];
-            if (job.status === "pending") {
-                const jobStartTime = moment(job.start_time);
-                const now = moment();
-                const seconds = moment.duration(now.diff(jobStartTime)).asSeconds();
-                if (seconds > 30) {
-                    bot.removeJob(i);
-                    console.log(`Job ${job.job_id} with prompt ${job.prompt} removed after 60 seconds due to an error`);
-                    processNextJob();
-                }
-            }
-        }
-    })
-}, 10000)
+// setInterval(() => {
+//     bots.forEach(bot => {
+//         const jobs = bot.getJobs();
+//         for (let i = 0; i < jobs.length; i++) {
+//             const job = jobs[i];
+//             if (job.status === "pending") {
+//                 const jobStartTime = moment(job.start_time);
+//                 const now = moment();
+//                 const seconds = moment.duration(now.diff(jobStartTime)).asSeconds();
+//                 if (seconds > 30) {
+//                     bot.removeJob(i);
+//                     console.log(`Job ${job.job_id} with prompt ${job.prompt} removed after 60 seconds due to an error`);
+//                     processNextJob();
+//                 }
+//             }
+//         }
+//     })
+// }, 10000)
 
 const app = express();
 app.use(express.json());
@@ -43,102 +43,9 @@ app.use(cors({
     origin: 'http://localhost:3001',
 }));
 
-const url = 'mongodb://localhost:27017';
-
-var clients = [];
-var queue = [];
-
-//TODO: naredi posebi collection za jobe: generations pa upscales
-//TODO: custom model za v bazo: Generation()
-
-//selfbot accounts, each selfbot has its own channel
-let bots = [
-    new Bot(process.env.BOT_1_AUTH, process.env.BOT_1_CHANNEL),
-];
-
-const createClients = () => {
-    for (let i = 0; i < bots.length; i++) {
-        const client = new Client({ checkUpdate: false });
-        clients.push(client);
-    }
-}
-
-createClients();
-
 const PORT = process.env.PORT || 3000;
 
-const loginClients = () => {
-    for (let i = 0; i < clients.length; i++) {
-        clients[i].once('ready', () => {
-            console.log(`Logged in as ${clients[i].user.tag} using channel ${bots[i].getChannel()}`);
-            bots[i].setSessionId(clients[i].sessionId);
-        });
-        clients[i].login(bots[i].token);
-    }
-}
 
-//check if bot is available
-isBotAvailable = (bot, job) => {
-    //if bot has less than 3 jobs and the prompt is not already in jobs of bot
-    if (bot.getJobs().length < 3 && !_.find(bot.getJobs(), { prompt: job.prompt })) {
-        return true;
-    }
-    return;
-}
-
-//create job with prompt
-createJob = (prompt) => {
-    const job = new Job(prompt);
-    return job;
-}
-
-//process job
-const processJob = async (job) => {
-    //check if there are any bots available
-    for (let i = 0; i < bots.length; i++) {
-        if (isBotAvailable(bots[i], job)) {
-            job.status = "pending";
-            job.start_time = new Date();
-            bots[i].addJob(job);
-            await limiter.schedule(() => startGeneration(job, bots[i]));
-            return job;
-        }
-    }
-    //if no bots are available, add job to queue
-    job.status = "queued";
-    queue.push(job);
-    return job;
-}
-
-const processNextJob = () => {
-    if (queue.length > 0) {
-        processJob(queue.shift());
-    }
-}
-
-const getJob = async (job_id) => {
-    for (let i = 0; i < bots.length; i++) {
-        let job = _.find(bots[i].getJobs(), { job_id: job_id });
-        if (job) {
-            return job;
-        }
-    }
-    let job = _.find(queue, { job_id: job_id });
-    if (job) {
-        return job;
-    }
-    try {
-        const client = await MongoClient.connect(url);
-        const collection = client.db("testDb").collection("jobs");
-        let job = await collection.findOne({ _id: ObjectId(job_id) });
-        await client.close();
-        return job;
-    }
-    catch (err) {
-        console.log(err);
-        return;
-    }
-}
 
 const startGenerationTest = (job, bot) => {
     const data = {
@@ -232,10 +139,6 @@ const upscaleImage = (job, bot) => {
     });
 }
 
-const getQueuePosition = (job) => {
-    return _.findIndex(queue, { job_id: job.job_id }) + 1;
-}
-
 const getStringBetween = (input) => {
     const startIndex = input.indexOf("**");
     const endIndex = input.indexOf("**", startIndex + 1);
@@ -311,20 +214,6 @@ app.get('/jobs/:job_id/status', async (req, res) => {
     res.json({ status: "error", message: "Something went wrong" });
 });
 
-function getJobByPrompt(jobs, prompt) {
-    return _.find(jobs, { prompt: prompt });
-}
-
-function getJobIndexByPrompt(jobs, prompt) {
-    return jobs.findIndex(job => job.prompt === prompt);
-}
-
-function updateJobStatus(bot, index, status) {
-    let job = bot.getJobs()[index];
-    job.status = status;
-    bot.getJobs()[index] = job;
-}
-
 const getImagePreviewUrl = async (job_id) => {
     try {
         const client = await MongoClient.connect(url);
@@ -389,31 +278,6 @@ const insertJob = async (job) => {
     }
 }
 
-clients[0].on('messageCreate', async message => {
-    //if message author is midjourney bot
-    if (message.author.bot) {
-        console.dir(message);
-        //we loop through selfbots
-        bots.forEach(bot => {
-            //if message is sent in the same channel as selfbot
-            if (bot.getChannel() === message.channelId) {
-                let prompt = getStringBetween(message.content);
-                let job = getJobByPrompt(bot.getJobs(), prompt);
-                let index = getJobIndexByPrompt(bot.getJobs(), prompt);
-                if (job) {
-                    if (job.status === "pending") {
-                        updateJobStatus(bot, index, "in progress");
-                    }
-                    else if (job.status === "in progress") {
-                        updateJobStatus(bot, index, "processing");
-                        CompleteJob(bot, index, message);
-                    }
-                }
-            }
-        });
-    }
-});
-
 //first login all clients then listen to port
 app.listen(PORT, () => console.log(`Server running on port: http://localhost:${PORT}`));
-loginClients();
+// loginClients();

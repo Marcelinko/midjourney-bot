@@ -1,23 +1,7 @@
 module.exports = class Bot {
-    constructor(token, channel) {
-        this.token = token;
-        this.channel = channel;
-        this.jobs = [];
-    }
-    getToken() {
-        return this.token;
-    }
-    getChannel() {
-        return this.channel;
-    }
-    addJob(job) {
-        this.jobs.push(job);
-    }
-    removeJob(index) {
-        this.jobs.splice(index, 1);
-    }
-    getJobs() {
-        return this.jobs;
+    constructor(accessToken) {
+        this.accessToken = accessToken;
+        this.sessionId = null;
     }
     setSessionId(sessionId) {
         this.sessionId = sessionId;
@@ -26,3 +10,4 @@ module.exports = class Bot {
         return this.sessionId;
     }
 }
+
