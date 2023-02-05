@@ -140,16 +140,16 @@ const getJob = async (job_id) => {
     }
 }
 
-const startGenerationTest = (job, bot) => {
+const startGeneration = (job, bot) => {
     const data = {
         "type": 2,
-        "application_id": "1063745303267790858",//midjourney 936929561302675456
+        "application_id": "1071758872961888385",//midjourney 936929561302675456
         "guild_id": process.env.SERVER_ID,
         "channel_id": bot.getChannel(),
         "session_id": bot.getSessionId(),
         "data": {
-            "version": "1063765617464848384",//994261739745050686
-            "id": "1063761652580888646",//938956540159881230
+            "version": "1071810428067397754",//994261739745050686
+            "id": "1071810428067397753",//938956540159881230
             "name": "imagine",
             "type": 1,
             "options": [
@@ -173,7 +173,7 @@ const startGenerationTest = (job, bot) => {
     });
 }
 
-const startGeneration = (job, bot) => {
+const startGenerationTest = (job, bot) => {
     const data = {
         "type": 2,
         "application_id": "936929561302675456",
@@ -392,7 +392,6 @@ const insertJob = async (job) => {
 clients[0].on('messageCreate', async message => {
     //if message author is midjourney bot
     if (message.author.bot) {
-        console.dir(message);
         //we loop through selfbots
         bots.forEach(bot => {
             //if message is sent in the same channel as selfbot
