@@ -1,70 +1,41 @@
 const { Client } = require("discord.js-selfbot-v13");
-const Channel = require("../models/Channel");
+const { Channel } = require("../models/Channel");
 const { Job, Status } = require("../models/Job");
+const { Bot } = require("../models/Bot");
+const BotConfig = require("../../config/bots");
+
 
 const channels = [];
-const clients = [];
-const queue = [];
+const midjourneyClients = [];
+const jobQueue = [];
 
-const startGeneration = (job, bot, channelId) => {
-    const data = {
-        "type": 2,
-        "application_id": "936929561302675456",
-        "guild_id": process.env.SERVER_ID,
-        "channel_id": channelId,
-        "session_id": bot.getSessionId(),
-        "data": {
-            "version": "1071810428067397754",
-            "id": "1071810428067397753",
-            "name": "imagine",
-            "type": 1,
-            "options": [
-                {
-                    "type": 3,
-                    "name": "prompt",
-                    "value": job.prompt
-                }
-            ]
-        },
+
+const createChannels = () => {
+
+    console.log(BotConfig)
+
+    for (let bot in BotConfig) {
+        /*  //create client for every bot
+          const client = new Client({ checkUpdate: false });
+
+          //login client with token
+          client.once("ready", () => {
+              client.login(bot.).catch(err => console.log("clientLoginError: " + err));
+              console.log(`Logged in as ${client.user.tag}`);
+          });
+
+          for (let channel in bot[chanelIds])
+          //create new bot for channel
+          const bot = new Bot(bot["accessToken"], client.sessionId);
+
+          let channel =*/
+
     }
 
-    const config = {
-        headers: {
-            "Authorization": bot.getToken()
-        }
-    }
 
-    return axios.post('https://discord.com/api/v9/interactions', data, config).catch((err) => {
-        console.log(err);
-    });
 }
 
-const bots = [
-    {
-        "accessToken": "MTA3MDMyOTgxMDg2MzI3NjA2NA.GKd9zF._3oUM8x2Sr8oKAFPUMl0x05pj6SaGkpOnxNxuc",
-        "chanelIds": [
-            "1070333461539336262",
-            "1071837327015550996",
-            "1071837375027761312"
-        ]
-    },
-    // {
-    //     "accessToken": "MTA3MDMyOTgxMDg2MzI3NjA2NA.GKd9zF._b9gj6v1l6k8c6b2j6g2",
-    //     "chanelIds": [
-    //         "1070333461539336262",
-    //         "1071837327015550996",
-    //         "1071837375027761312"
-    //     ]
-    // }
-]
-
-const createClients = () => {
-    for (let i = 0; i < bots.length; i++) {
-        const client = new Client({ checkUpdate: false });
-        clients.push(client);
-    }
-}
-
+/*
 createClients();
 
 const loginClients = () => {
@@ -89,7 +60,7 @@ const processJob = async (job) => {
     if (freeChannel) {
         freeChannel.giveJob(job);
     } else {
-        queue.push(job);
+        jobQueue.push(job);
     }
     //check if there are any bots available
     for (let i = 0; i < bots.length; i++) {
@@ -101,9 +72,9 @@ const processJob = async (job) => {
             return job;
         }
     }
-    //if no bots are available, add job to queue
+    //if no bots are available, add job to jobQueue
     job.status = "queued";
-    queue.push(job);
+    jobQueue.push(job);
     return job;
 }
 
@@ -121,4 +92,6 @@ clients[0].on('messageCreate', async message => {
     //if message author is midjourn  ey bot
     if (message.author.bot) {
     }
-});
+});*/
+
+module.exports = { createChannels }
