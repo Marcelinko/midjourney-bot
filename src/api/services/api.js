@@ -4,7 +4,7 @@ const axios = require("axios");
 const sendInteraction = (job, channel) => {
     const data = {
         "type": 2,
-        "application_id": process.env.MIDJOURNEY_ID,
+        "application_id": "1071758872961888385",//process.env.MIDJOURNEY_ID,
         "guild_id": process.env.SERVER_ID,
         "channel_id": channel.channelId,
         "session_id": channel.bot.getSessionId(),

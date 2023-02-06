@@ -5,7 +5,8 @@ const createJob = async (req, res) => {
     const { prompt } = req.body;
     try {
         await validation.promptSchema.validateAsync(req.body);
-        const job = await discord.createJob(prompt);
+        const job = discord.createJob(prompt);
+        discord.processJob(job);
         res.status(200).json({ job_id: job.job_id, status: job.status });
     }
     catch (err) {

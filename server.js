@@ -30,6 +30,7 @@ app.use('/auth', authRoutes);
 
 (async () => {
     await discord.createListenerClient();
+    await discord.initializeChannelBots();
 })();
 
 
