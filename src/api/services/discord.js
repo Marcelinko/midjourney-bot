@@ -7,50 +7,60 @@ const axios = require("axios");
 const Jimp = require("jimp");
 const s3 = require("./s3");
 
-
 const channels = [];
-const midjourneyClients = [];
 const jobQueue = [];
 
-const initializeChannelBots = async () => {
+const getQueuePosition = (job) => {
+};
 
-    for (const botConfig of BotConfig) {
+const getFreeChannel = () => {
+    return channels.find((channel) => channel.getStatus());
+};
 
-        //make new client for each selfbot and login to get session id
-        const client = new Client({checkUpdate: false});
-        await client.login(botConfig.accessToken);
-        console.log(`Logged in as ${client.user.tag}`);
+const handleMessage = async (message) => {
 
-        //create bot for client
-        const bot = new Bot(botConfig.accessToken, client.sessionId);
-
-        //iterate trough channel ids and, assign bots and save in channel array
-        botConfig.channelIds.forEach(channelId => {
-            //create new bot for channel
-            channels.push(new Channel(channelId, bot))
-        })
+    const channel = getFreeChannel();
+    if (!channel) {
+        //No free channels available, add job to queue
+        
     }
+
+    //const job = new Job(message.content);
+    //channel.giveJob(job);
+    //jobQueue.push(job);
+
 }
 
+const createListenerClient = async () => {
+    const listenerClient = new Client({ checkUpdate: false });
+    await listenerClient.login(process.env.LISTENER_CLIENT_TOKEN);
+    console.log(`Logged in as ${listenerClient.user.tag}`);
+    listenerClient.on('messageCreate', handleMessage);
+};
 
-/*
-createClients();
 
-const loginClients = () => {
-    for (let i = 0; i < clients.length; i++) {
-        clients[i].once('ready', () => {
-            console.log(`Logged in as ${clients[i].user.tag}`);
-            bots[i].sessionId = clients[i].sessionId;
-        });
-        clients[i].login(bots[i].accessToken);
-    }
-}
 
-loginClients();
-let xd = new Channel('asdčahosdACCESSTOKEN', 'šasjdaosdjCHANNELID');
+// const initializeChannelBots = async () => {
 
-xd.giveJob(new Job('buraz'));
-console.log(xd);
+//     for (const botConfig of BotConfig) {
+
+//         //make new client for each selfbot and login to get session id
+//         const client = new Client({checkUpdate: false});
+//         await client.login(botConfig.accessToken);
+//         console.log(`Logged in as ${client.user.tag}`);
+
+//         //create bot for client
+//         const bot = new Bot(botConfig.accessToken, client.sessionId);
+
+//         //iterate trough channel ids and, assign bots and save in channel array
+//         botConfig.channelIds.forEach(channelId => {
+//             //create new bot for channel
+//             channels.push(new Channel(channelId, bot));
+//         });
+//     }
+// }
+
+
 
 
 const processJob = async (job) => {
@@ -80,17 +90,6 @@ createJob = (prompt) => {
     return new Job(prompt);
 }
 
-bots.forEach(bot => {
-    bot.chanelIds.forEach(channelId => {
-        channels.push(new Channel(bot.accessToken, channelId));
-    });
-});
-
-clients[0].on('messageCreate', async message => {
-    //if message author is midjourn  ey bot
-    if (message.author.bot) {
-    }
-});*/
 
 const uploadPreviewImage = async (job) => {
     try {
@@ -113,4 +112,6 @@ const uploadPreviewImage = async (job) => {
     }
 }
 
-module.exports = { inializeChannelBots: initializeChannelBots }
+module.exports = {
+    createListenerClient
+}

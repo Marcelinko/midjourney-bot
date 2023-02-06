@@ -20,7 +20,9 @@ app.use(cors({
 
 const PORT = process.env.PORT || 3000;
 
-
+(async () => {
+    await discord.createListenerClient();
+})();
 
 
 /*function extractUUID(str) {
@@ -88,10 +90,4 @@ const CompleteJob = async (bot, index, message) => {
 }
 
 
-
-//Login all clients then start the server
-discord.inializeChannelBots().then(() => {
-    app.listen(PORT, () => console.log(`Server running on port: http://localhost:${PORT}`));
-}).catch((err) => {
-    console.log(err);
-});
+app.listen(PORT, () => console.log(`Server running on port: http://localhost:${PORT}`));
