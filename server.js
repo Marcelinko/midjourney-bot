@@ -8,7 +8,6 @@ const Jimp = require('jimp');
 const { MongoClient, ObjectId } = require('mongodb');
 const Bottleneck = require('bottleneck');
 const s3 = require('./src/api/services/s3');
-
 const discord = require('./src/api/services/discord');
 
 
@@ -19,6 +18,15 @@ app.use(cors({
 }));
 
 const PORT = process.env.PORT || 3000;
+
+const defaultRoutes = require('./src/api/routes/routes');
+const authRoutes = require('./src/api/routes/authRoutes');
+
+
+//Routes
+app.use('/', defaultRoutes);
+app.use('/auth', authRoutes);
+
 
 (async () => {
     await discord.createListenerClient();

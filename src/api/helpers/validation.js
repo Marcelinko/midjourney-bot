@@ -24,10 +24,15 @@ const emailSchema = Joi.object({
   email: Joi.string().email().lowercase().required()
 })
 
+const promptSchema = Joi.object({
+  prompt: Joi.string().regex(/^[a-zA-Z0-9\s,]+$/).min(3).max(300).replace(/[\s,]/g, '').required()
+});
+
 module.exports = {
   registerSchema,
   loginSchema,
   newPasswordSchema,
   refreshTokenSchema,
   emailSchema,
+  promptSchema,
 }

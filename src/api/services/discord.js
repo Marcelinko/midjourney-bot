@@ -10,7 +10,10 @@ const s3 = require("./s3");
 const channels = [];
 const jobQueue = [];
 
-const getQueuePosition = (job) => {
+
+
+const createJob = (prompt) => {
+    return new Job(prompt);
 };
 
 const getFreeChannel = () => {
@@ -18,11 +21,11 @@ const getFreeChannel = () => {
 };
 
 const handleMessage = async (message) => {
-
+    console.log(message.content);
     const channel = getFreeChannel();
     if (!channel) {
         //No free channels available, add job to queue
-        
+
     }
 
     //const job = new Job(message.content);
@@ -35,6 +38,7 @@ const createListenerClient = async () => {
     const listenerClient = new Client({ checkUpdate: false });
     await listenerClient.login(process.env.LISTENER_CLIENT_TOKEN);
     console.log(`Logged in as ${listenerClient.user.tag}`);
+
     listenerClient.on('messageCreate', handleMessage);
 };
 
@@ -86,10 +90,6 @@ const processJob = async (job) => {
     return job;
 }
 
-createJob = (prompt) => {
-    return new Job(prompt);
-}
-
 
 const uploadPreviewImage = async (job) => {
     try {
@@ -113,5 +113,6 @@ const uploadPreviewImage = async (job) => {
 }
 
 module.exports = {
+    createJob,
     createListenerClient
 }
