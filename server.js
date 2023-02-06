@@ -7,7 +7,6 @@ const cors = require('cors');
 const Jimp = require('jimp');
 const { MongoClient, ObjectId } = require('mongodb');
 const Bottleneck = require('bottleneck');
-const Job = require('./src/api/models/Job');
 const s3 = require('./src/api/services/s3');
 
 const discord = require('./src/api/services/discord');
@@ -138,10 +137,9 @@ const uploadPreviewImage = async (job) => {
     }
 }
 
-//discord
-discord.inializeChannelBots();
-
-
-//first login all clients then listen to port
-app.listen(PORT, () => console.log(`Server running on port: http://localhost:${PORT}`));
-// loginClients();
+//Login all clients then start the server
+discord.inializeChannelBots().then(() => {
+    app.listen(PORT, () => console.log(`Server running on port: http://localhost:${PORT}`));
+}).catch((err) => {
+    console.log(err);
+});

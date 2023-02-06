@@ -15,19 +15,18 @@ const inializeChannelBots = async () => {
 
         //make new client for each selfbot and login to get session id
         const client = new Client({checkUpdate: false});
-        await client.login(botConfig.accessToken)
+        await client.login(botConfig.accessToken);
+        console.log(`Logged in as ${client.user.tag}`);
 
         //create bot for client
         const bot = new Bot(botConfig.accessToken, client.sessionId);
 
         //iterate trough channel ids and, assign bots and save in channel array
         botConfig.channelIds.forEach(channelId => {
-
             //create new bot for channel
             channels.push(new Channel(channelId, bot))
         })
     }
-    console.log(channels)
 }
 
 
