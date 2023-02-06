@@ -1,7 +1,7 @@
 const { Client } = require("discord.js-selfbot-v13");
-const { Channel } = require("../models/Channel");
+const Channel = require("../models/Channel");
 const { Job, Status } = require("../models/Job");
-const { Bot } = require("../models/Bot");
+const Bot = require("../models/Bot");
 const BotConfig = require("../../config/bots");
 
 
@@ -9,31 +9,27 @@ const channels = [];
 const midjourneyClients = [];
 const jobQueue = [];
 
+const inializeChannelBots = async () => {
 
-const createChannels = () => {
+    for (const botConfig of BotConfig) {
 
-    console.log(BotConfig)
+        //make new client for each selfbot and login to get session id
+        const client = new Client({checkUpdate: false});
+        await client.login(botConfig.accessToken)
 
-    for (let bot in BotConfig) {
-        /*  //create client for every bot
-          const client = new Client({ checkUpdate: false });
+        //create bot for client
+        const bot = new Bot(botConfig.accessToken, client.sessionId);
 
-          //login client with token
-          client.once("ready", () => {
-              client.login(bot.).catch(err => console.log("clientLoginError: " + err));
-              console.log(`Logged in as ${client.user.tag}`);
-          });
+        //iterate trough channel ids and, assign bots and save in channel array
+        botConfig.channelIds.forEach(channelId => {
 
-          for (let channel in bot[chanelIds])
-          //create new bot for channel
-          const bot = new Bot(bot["accessToken"], client.sessionId);
-
-          let channel =*/
-
+            //create new bot for channel
+            channels.push(new Channel(channelId, bot))
+        })
     }
-
-
+    console.log(channels)
 }
+
 
 /*
 createClients();
@@ -94,4 +90,4 @@ clients[0].on('messageCreate', async message => {
     }
 });*/
 
-module.exports = { createChannels }
+module.exports = { inializeChannelBots }

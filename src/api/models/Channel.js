@@ -1,6 +1,6 @@
 
 module.exports = class Channel {
-    constructor(bot, channelId) {
+    constructor(channelId, bot) {
         this.channelId = channelId;//doesn't change
         this.bot = bot;//doesn't change
         this.job = null;//can change

@@ -13,8 +13,6 @@ const s3 = require('./src/api/services/s3');
 const discord = require('./src/api/services/discord');
 
 
-discord.createChannels();
-
 const app = express();
 app.use(express.json());
 app.use(cors({
@@ -139,6 +137,9 @@ const uploadPreviewImage = async (job) => {
         return;
     }
 }
+
+//discord
+discord.inializeChannelBots();
 
 
 //first login all clients then listen to port
