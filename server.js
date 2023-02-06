@@ -21,36 +21,7 @@ app.use(cors({
 const PORT = process.env.PORT || 3000;
 
 
-const { authenticate, registerUser, loginUserEmailPassword, logoutUser, refreshToken, resetPassword, verifyEmail, forgotPassword, logoutUserAllDevices, loginUserGoogle } = require('./src/api/controllers/authController');
-const { createCheckoutSession } = require('./src/api/controllers/stripeController');
 
-//this should be under auth/google, login, register...
-app.post('/register', registerUser);
-app.post('/google', loginUserGoogle);
-app.post('/login', loginUserEmailPassword);
-app.delete('/logout', authenticate, logoutUser);
-app.delete('/logout-all', authenticate, logoutUserAllDevices);
-app.post('/refresh-token', refreshToken);
-app.post('/forgot-password', forgotPassword);
-app.post('/reset-password/:user_id/:token', resetPassword);
-app.get('/verify/:token', verifyEmail);
-
-app.post('/checkout', createCheckoutSession);
-
-app.get('/test', authenticate, (req, res) => {
-    res.send("Ok");
-});
-
-
-app.post('/generate', (req, res) => {
-    const { prompt } = req.body;
-    if (!prompt) return res.status(400).json({ error: 'No prompt provided' });
-    if (prompt.length > 100) return res.status(400).json({ error: 'Prompt too long' });
-    const job = createJob(prompt.replace(/\*/g, ''));
-    processJob(job);
-
-    return res.json({ job_id: job.job_id, status: job.status });
-});
 
 /*function extractUUID(str) {
     // Use a regular expression to match the UUID
@@ -116,26 +87,7 @@ const CompleteJob = async (bot, index, message) => {
     processNextJob();
 }
 
-const uploadPreviewImage = async (job) => {
-    try {
-        const res = await axios.get(job.image_url, {
-            responseType: 'arraybuffer',
-        });
 
-        const originalImage = await Jimp.read(res.data);
-        const overlayImage = await Jimp.read('./Preview.png');
-        originalImage.composite(overlayImage, 0, 0, {
-            mode: Jimp.BLEND_SOURCE_OVER,
-            opacitySource: 0.5,
-        });
-        const buffer = await originalImage.getBufferAsync(Jimp.MIME_JPEG);
-        await s3.uploadImage(job.image_preview, buffer);
-    }
-    catch (err) {
-        console.log(err);
-        return;
-    }
-}
 
 //Login all clients then start the server
 discord.inializeChannelBots().then(() => {

@@ -3,13 +3,16 @@ const Channel = require("../models/Channel");
 const { Job, Status } = require("../models/Job");
 const Bot = require("../models/Bot");
 const BotConfig = require("../../config/bots");
+const axios = require("axios");
+const Jimp = require("jimp");
+const s3 = require("./s3");
 
 
 const channels = [];
 const midjourneyClients = [];
 const jobQueue = [];
 
-const inializeChannelBots = async () => {
+const initializeChannelBots = async () => {
 
     for (const botConfig of BotConfig) {
 
@@ -89,4 +92,25 @@ clients[0].on('messageCreate', async message => {
     }
 });*/
 
-module.exports = { inializeChannelBots }
+const uploadPreviewImage = async (job) => {
+    try {
+        const res = await axios.get(job.image_url, {
+            responseType: 'arraybuffer',
+        });
+
+        const originalImage = await Jimp.read(res.data);
+        const overlayImage = await Jimp.read('./Preview.png');
+        originalImage.composite(overlayImage, 0, 0, {
+            mode: Jimp.BLEND_SOURCE_OVER,
+            opacitySource: 0.5,
+        });
+        const buffer = await originalImage.getBufferAsync(Jimp.MIME_JPEG);
+        await s3.uploadImage(job.image_preview, buffer);
+    }
+    catch (err) {
+        console.log(err);
+        return;
+    }
+}
+
+module.exports = { inializeChannelBots: initializeChannelBots }
