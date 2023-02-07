@@ -1,11 +1,14 @@
-const { Client } = require("discord.js-selfbot-v13");
+const { Client, MessageAttachment} = require("discord.js-selfbot-v13");
 const Channel = require("../models/Channel");
 const { Job, Status } = require("../models/Job");
 const Bot = require("../models/Bot");
 const BotConfig = require("../../config/bots");
-const Jimp = require("jimp");
+const jimp = require("./jimp.js");
 const s3 = require("./s3");
 const api = require('./api');
+const {uploadImage} = require("./s3");
+const axios = require("./axios.js");
+const {response} = require("express");
 
 const channels = [];
 const jobQueue = [];
@@ -38,15 +41,15 @@ const updateJobStatus = (channel, message) => {
     const prompt = getPromptFromMessage(message.content);
     if (prompt !== job.getPrompt()) {
         job.setStatus(Status.FAILED);
-        channel.free();
-        return;
+        return job.status;
     }
     if (job.getStatus() === Status.PENDING) {
         job.setStatus(Status.IN_PROGRESS);
+        return job.status;
     }
     else if (job.getStatus() === Status.IN_PROGRESS) {
         job.setStatus(Status.COMPLETED);
-        channel.free();
+        return job.status;
     }
 }
 
@@ -71,7 +74,14 @@ const handleMessage = async (message) => {
         //Find a channel that has the same channel id as message channel id
         const channel = getChannelByChannelId(message.channelId);
         if (channel) {
-            updateJobStatus(channel, message);
+            const jobStatus = updateJobStatus(channel, message);
+            //if job is finished upload images to aws and free, if failed just free
+            if(jobStatus === Status.FAILED){
+                channel.free();
+            } else if(jobStatus === Status.COMPLETED) {
+                await saveGeneratedImage(message, channel.job);
+                channel.free();
+            }
         }
     //}
 }
@@ -107,27 +117,15 @@ const initializeChannelBots = async () => {
 
 
 
+const saveGeneratedImage = (message, job) => {
 
-// const uploadPreviewImage = async (job) => {
-//     try {
-//         const res = await axios.get(job.image_url, {
-//             responseType: 'arraybuffer',
-//         });
+    //read photo from message
+    const imageUrl = message.attachments.first().url;
+    jimp.readImages(imageUrl);
+    console.log(response);
+}
 
-//         const originalImage = await Jimp.read(res.data);
-//         const overlayImage = await Jimp.read('./Preview.png');
-//         originalImage.composite(overlayImage, 0, 0, {
-//             mode: Jimp.BLEND_SOURCE_OVER,
-//             opacitySource: 0.5,
-//         });
-//         const buffer = await originalImage.getBufferAsync(Jimp.MIME_JPEG);
-//         await s3.uploadImage(job.image_preview, buffer);
-//     }
-//     catch (err) {
-//         console.log(err);
-//         return;
-//     }
-// }
+
 
 module.exports = {
     createJob,
