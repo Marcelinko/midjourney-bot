@@ -11,44 +11,75 @@ const channels = [];
 const jobQueue = [];
 
 
-
+//Creates and returns new job
 const createJob = (prompt) => {
     return new Job(prompt);
 };
 
-const processJob = async (job) => {
-    const freeChannel = channels.find(channel => channel.isFree);
-    if (freeChannel) {
-        freeChannel.giveJob(job);
-        api.sendInteraction(job, freeChannel);
-    } else {
-        jobQueue.push(job);
-        console.log(jobQueue.length);
-    }
-}
+//Queues job
+const queueJob = (job) => {
+    job.setStatus(Status.QUEUED);
+    jobQueue.push(job);
+};
 
+//Returns free channel
 const getFreeChannel = () => {
     return channels.find((channel) => channel.getStatus());
 };
 
-const handleMessage = async (message) => {
-    const channel = getFreeChannel();
-    if (!channel) {
-        //No free channels available, add job to queue
+//Returns prompt from message
+const getPromptFromMessage = (message) => {
+    return message.match(/\*\*(.*?)\*\*/)[1];
+};
 
+//Updates job status
+const updateJobStatus = (channel, message) => {
+    const job = channel.getJob();
+    const prompt = getPromptFromMessage(message.content);
+    if (prompt !== job.getPrompt()) {
+        job.setStatus(Status.FAILED);
+        channel.free();
+        return;
     }
-
-    //const job = new Job(message.content);
-    //channel.giveJob(job);
-    //jobQueue.push(job);
-
+    if (job.getStatus() === Status.PENDING) {
+        job.setStatus(Status.IN_PROGRESS);
+    }
+    else if (job.getStatus() === Status.IN_PROGRESS) {
+        job.setStatus(Status.COMPLETED);
+        channel.free();
+    }
 }
 
-const createListenerClient = async () => {
+//Starts job or queues it if there are no free channels
+const processJob = async (job) => {
+    const freeChannel = getFreeChannel();
+    if (freeChannel) {
+        freeChannel.giveJob(job);
+        api.sendInteraction(job, freeChannel);
+    } else {
+        queueJob(job);
+    }
+}
+
+//Returns channel
+const getChannelByChannelId = (channelId) => {
+    return channels.find((channel) => channel.getChannelId() === channelId);
+}
+
+const handleMessage = async (message) => {
+    //if (message.author.bot) {
+        //Find a channel that has the same channel id as message channel id
+        const channel = getChannelByChannelId(message.channelId);
+        if (channel) {
+            updateJobStatus(channel, message);
+        }
+    //}
+}
+
+const initializeListenerClient = async () => {
     const listenerClient = new Client({ checkUpdate: false });
     await listenerClient.login(process.env.LISTENER_CLIENT_TOKEN);
     console.log(`Logged in as ${listenerClient.user.tag}`);
-
     listenerClient.on('messageCreate', handleMessage);
 };
 
@@ -59,7 +90,7 @@ const initializeChannelBots = async () => {
     for (const botConfig of BotConfig) {
 
         //make new client for each selfbot and login to get session id
-        const client = new Client({checkUpdate: false});
+        const client = new Client({ checkUpdate: false });
         await client.login(botConfig.accessToken);
         console.log(`Logged in as ${client.user.tag}`);
 
@@ -101,6 +132,6 @@ const initializeChannelBots = async () => {
 module.exports = {
     createJob,
     processJob,
+    initializeListenerClient,
     initializeChannelBots,
-    createListenerClient
 }

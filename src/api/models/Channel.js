@@ -6,19 +6,22 @@ module.exports = class Channel {
         this.job = null;//can change
         this.isFree = true;//can change
     }
-
-    giveJob(job){
+    giveJob(job) {
         this.isFree = false;
         this.job = job;
     }
-
-    free(){
+    free() {
+        this.job = null;
         this.isFree = true;
     }
-
-    getStatus(){
+    getStatus() {
         return this.isFree;
     }
-
+    getChannelId() {
+        return this.channelId;
+    }
+    getJob() {
+        return this.job;
+    }
 }
 
