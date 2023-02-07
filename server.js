@@ -1,4 +1,4 @@
-require('dotenv').config({path: 'dev.env'});
+require('dotenv').config({path: '.env'});
 const express = require('express');
 const { Client } = require('discord.js-selfbot-v13');
 const _ = require('lodash');
