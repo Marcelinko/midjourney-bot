@@ -15,21 +15,21 @@ const semaphore = new Semaphore(1);
 let channels = [];
 let jobs = [];
 
-setInterval(function () {
-    let jobArray = "jobArray: "
-    let channelArray = "channelAray: "
-    // jobs.forEach(job => {
-    //     jobArray = jobArray + job.getStatus() + " ";
-    // });
+// setInterval(function () {
+//     let jobArray = "jobArray: "
+//     let channelArray = "channelAray: "
+//     // jobs.forEach(job => {
+//     //     jobArray = jobArray + job.getStatus() + " ";
+//     // });
 
-    channels.forEach(channel => {
-        channelArray = channelArray + channel.getIsFree() + " ";
-    });
+//     channels.forEach(channel => {
+//         channelArray = channelArray + channel.getIsFree() + " ";
+//     });
 
-    //console.log(jobArray)
-    console.log(channelArray)
-    console.log("Queue length: " + getQueueLength());
-}, 1000);
+//     //console.log(jobArray)
+//     console.log(channelArray)
+//     console.log("Queue length: " + getQueueLength());
+// }, 1000);
 
 const jobSemaphore = async () => {
     semaphore.take(() => {
@@ -45,10 +45,32 @@ const jobSemaphore = async () => {
             semaphore.leave();
             return;
         }
+        console.log(freeChannel);
         giveJobToChannel(firstQueuedJob, freeChannel);
         semaphore.leave();
     });
 }
+
+const getFreeChannel = () => {
+    let botWithMostFreeChannels = null;
+    let mostFreeChannels = 0;
+    const uniqueBots = new Set();
+
+    for (const channel of channels) {
+        uniqueBots.add(channel.bot);
+        if (channel.isFree) {
+            const freeChannels = channels.filter(ch => ch.bot === channel.bot && ch.isFree).length;
+            if (freeChannels > mostFreeChannels) {
+                botWithMostFreeChannels = channel.bot;
+                mostFreeChannels = freeChannels;
+            }
+        }
+    }
+
+    if (botWithMostFreeChannels) {
+        return channels.find(channel => channel.bot === botWithMostFreeChannels && channel.isFree);
+    }
+};
 
 const getQueueLength = () => {
     return jobs.filter(job => { return job.getStatus() === Status.QUEUED }).length;
@@ -64,9 +86,10 @@ const getChannelByChannelId = (channelId) => {
 }
 
 //Returns channel from bot with most free channels
-const getFreeChannel = () => {
-    return channels.find((channel) => channel.getIsFree());
-};
+// const getFreeChannel = () => {
+
+//     return channels.find((channel) => channel.getIsFree());
+// };
 
 const createJob = (prompt) => {
     const job = new Job(prompt);

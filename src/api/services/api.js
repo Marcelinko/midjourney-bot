@@ -3,37 +3,15 @@ const axios = require("axios");
 
 const sendInteraction = (job, channel) => {
     //fejk midjourney
-    // const data = {
-    //     "type": 2,
-    //     "application_id": "1071758872961888385",
-    //     "guild_id": process.env.SERVER_ID,
-    //     "channel_id": channel.channelId,
-    //     "session_id": channel.bot.getSessionId(),
-    //     "data": {
-    //         "version": "1071810428067397754",
-    //         "id": "1071810428067397753",
-    //         "name": "imagine",
-    //         "type": 1,
-    //         "options": [
-    //             {
-    //                 "type": 3,
-    //                 "name": "prompt",
-    //                 "value": job.prompt
-    //             }
-    //         ]
-    //     },
-    // }
-
-    //midjourney
     const data = {
         "type": 2,
-        "application_id": process.env.MIDJOURNEY_ID,
+        "application_id": "1071758872961888385",
         "guild_id": process.env.SERVER_ID,
         "channel_id": channel.channelId,
         "session_id": channel.bot.getSessionId(),
         "data": {
-            "version": process.env.MIDJOURNEY_VERSION,
-            "id": process.env.MIDJOURNEY_DATA_ID,
+            "version": "1071810428067397754",
+            "id": "1071810428067397753",
             "name": "imagine",
             "type": 1,
             "options": [
@@ -45,6 +23,28 @@ const sendInteraction = (job, channel) => {
             ]
         },
     }
+
+    //midjourney
+    // const data = {
+    //     "type": 2,
+    //     "application_id": process.env.MIDJOURNEY_ID,
+    //     "guild_id": process.env.SERVER_ID,
+    //     "channel_id": channel.channelId,
+    //     "session_id": channel.bot.getSessionId(),
+    //     "data": {
+    //         "version": process.env.MIDJOURNEY_VERSION,
+    //         "id": process.env.MIDJOURNEY_DATA_ID,
+    //         "name": "imagine",
+    //         "type": 1,
+    //         "options": [
+    //             {
+    //                 "type": 3,
+    //                 "name": "prompt",
+    //                 "value": job.prompt
+    //             }
+    //         ]
+    //     },
+    // }
 
     const config = {
         headers: {"Authorization": channel.bot.getAccessToken()}
