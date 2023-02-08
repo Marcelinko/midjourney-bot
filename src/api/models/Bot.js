@@ -14,4 +14,3 @@ module.exports = class Bot {
         return this.accessToken;
     }
 }
-

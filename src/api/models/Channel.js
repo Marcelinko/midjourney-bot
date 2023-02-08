@@ -1,4 +1,3 @@
-
 module.exports = class Channel {
     constructor(channelId, bot) {
         this.channelId = channelId;//doesn't change
@@ -7,14 +6,16 @@ module.exports = class Channel {
         this.isFree = true;//can change
     }
 
-    setJob(job){
+    setJob(job) {
         this.job = job;
     }
 
-    setIsFree(isFree){
+    getBot() {
+        return this.bot;
+    }
+    setIsFree(isFree) {
         this.isFree = isFree;
     }
-
     getIsFree() {
         return this.isFree;
     }
@@ -25,4 +26,3 @@ module.exports = class Channel {
         return this.job;
     }
 }
-
