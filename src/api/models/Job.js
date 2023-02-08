@@ -4,7 +4,6 @@ class Job {
     constructor(prompt) {
         this.job_id = new ObjectId();
         this.prompt = prompt;
-        this.status = Status.PENDING;
     }
     getPrompt() {
         return this.prompt;
@@ -18,9 +17,9 @@ class Job {
 }
 
 const Status = {
-    PENDING: 'pending',
-    IN_PROGRESS: 'in_progress',
-    COMPLETED: 'completed',
+    GENERATING: 'generating',
+    UPLOADING: 'uploading',
+    READY: 'ready',
     QUEUED: 'queued',
     FAILED: 'failed'
 };

@@ -5,13 +5,77 @@ const Bot = require("../models/Bot");
 const BotConfig = require("../../config/bots");
 const jimp = require("./jimp.js");
 const s3 = require("./s3");
-const api = require('./api');
+const api = require("./api");
 const {uploadImage} = require("./s3");
 const axios = require("./axios.js");
 const {response} = require("express");
+const db = require("./db");
+const Semaphore = require('semaphore');
+let sem = require('semaphore')(1);
 
-const channels = [];
-const jobQueue = [];
+let channels = [];
+
+let jobs = [];
+
+setInterval(function(){
+    let jobArray = "jobArray: "
+    let channelArray = "channelAray: "
+    jobs.forEach(job => {
+        jobArray = jobArray + job.getStatus() + " ";
+    });
+
+    channels.forEach(channel => {
+        channelArray = channelArray + channel.getIsFree() + " ";
+    });
+
+    console.log(jobArray)
+    console.log(channelArray)
+    console.log()
+}, 1000);
+
+
+const jobSemaphore = async () => {
+/*    sem.take(function() {
+        console.log("evo me u semaforju")
+        //check if any job has status QUEUED*/
+        let firstQueuedJob = jobs.find(job => { return job.getStatus() === Status.QUEUED});
+
+            if(firstQueuedJob){
+
+                //check if there are any free channels
+                const channel = getFreeChannel();
+                if(channel) {
+                    giveJobToChannel(channel, firstQueuedJob);
+                    api.sendInteraction(firstQueuedJob, channel);
+
+                } else {
+                    //sem.leave();
+                    return;
+                }
+            }
+/*
+    });*/
+};
+
+// const jobSemaphore = async () => {
+//     semaphore.take();
+//     try {
+//         //check if any job has status QUEUED
+//         jobs.forEach(job => {
+//             if(job.getStats() === Status.QUEUED){
+//                 //check if there are any free channels
+//                 const channel = getFreeChannel();
+//                 if(channel) {
+//                     giveJobToChannel(channel, job);
+//                 } else {
+//                     return;
+//                 }
+//             }
+//         })
+//     } finally {
+//         semaphore.leave();
+//     }
+// };
 
 
 //Creates and returns new job
@@ -19,15 +83,33 @@ const createJob = (prompt) => {
     return new Job(prompt);
 };
 
+
+const giveJobToChannel = (channel, job) => {
+    channel.setIsFree(false);
+    channel.setJob(job);
+}
+
+const freeChannel = (channel) => {
+    channel.setJob(null);
+    channel.setIsFree(true);
+}
+
+
 //Queues job
-const queueJob = (job) => {
+const queueJob = async (job) => {
     job.setStatus(Status.QUEUED);
-    jobQueue.push(job);
+    jobs.push(job);
 };
+
+/*//Start job
+const startJob = (job) => {
+    jobs.push(job);
+    job.setStatus(Status.GENERATING);
+};*/
 
 //Returns free channel
 const getFreeChannel = () => {
-    return channels.find((channel) => channel.getStatus());
+    return channels.find((channel) => channel.getIsFree());
 };
 
 //Returns prompt from message
@@ -41,27 +123,20 @@ const updateJobStatus = (channel, message) => {
     const prompt = getPromptFromMessage(message.content);
     if (prompt !== job.getPrompt()) {
         job.setStatus(Status.FAILED);
-        return job.status;
     }
-    if (job.getStatus() === Status.PENDING) {
-        job.setStatus(Status.IN_PROGRESS);
-        return job.status;
+    if (job.getStatus() === Status.QUEUED) {
+        job.setStatus(Status.GENERATING);
     }
-    else if (job.getStatus() === Status.IN_PROGRESS) {
-        job.setStatus(Status.COMPLETED);
-        return job.status;
+    else if (job.getStatus() === Status.GENERATING) {
+        job.setStatus(Status.UPLOADING);
     }
+    return job.status;
 }
 
 //Starts job or queues it if there are no free channels
-const processJob = async (job) => {
-    const freeChannel = getFreeChannel();
-    if (freeChannel) {
-        freeChannel.giveJob(job);
-        api.sendInteraction(job, freeChannel);
-    } else {
-        queueJob(job);
-    }
+const addJobToJobs = async (job) => {
+    await queueJob(job);
+    await jobSemaphore(job);
 }
 
 //Returns channel
@@ -77,10 +152,13 @@ const handleMessage = async (message) => {
             const jobStatus = updateJobStatus(channel, message);
             //if job is finished upload images to aws and free, if failed just free
             if(jobStatus === Status.FAILED){
-                channel.free();
-            } else if(jobStatus === Status.COMPLETED) {
-                await saveGeneratedImage(message, channel.job);
-                channel.free();
+                freeChannel(channel);
+            } else if(jobStatus === Status.UPLOADING) {
+                saveGeneratedImage(message, channel.job);
+                console.log("free channel")
+                freeChannel(channel);
+                await jobSemaphore();
+
             }
         }
     //}
@@ -121,15 +199,23 @@ const saveGeneratedImage = (message, job) => {
 
     //read photo from message
     const imageUrl = message.attachments.first().url;
-    jimp.readImages(imageUrl);
-    console.log(response);
+    axios.downloadImage(imageUrl).then(res => {
+        s3.uploadImage(message.attachments.first().name, res.data).then(() => {
+            //const generatedImage = new GeneratedImage();
+            //db.createGeneratedImage(generatedImage).then(job.status = Status.READY);
+            job.status = Status.READY;
+        })
+    })
+
+
 }
 
 
 
 module.exports = {
+    queueJob,
     createJob,
-    processJob,
+    addJobToJobs,
     initializeListenerClient,
     initializeChannelBots,
 }

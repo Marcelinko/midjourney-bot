@@ -10,14 +10,14 @@ const BotConf = [
         ]
     },
 
-    /*{
-        "accessToken": "MTA3MDMyOTgxMDg2MzI3NjA2NA.GKd9zF._3oUM8x2Sr8oKAFPUMl0x05pj6SaGkpOnxNxuc",
-        "channelIds": [
-            "1070333461539336262",
-            "1071837327015550996",
-            "1071837375027761312"
-        ]
-    },*/
+    // {
+    //     "accessToken": "MTA3MDMyOTgxMDg2MzI3NjA2NA.GKd9zF._3oUM8x2Sr8oKAFPUMl0x05pj6SaGkpOnxNxuc",
+    //     "channelIds": [
+    //         "1070333461539336262",
+    //         "1071837327015550996",
+    //         "1071837375027761312"
+    //     ]
+    // },
 ]
 
 module.exports = BotConf;

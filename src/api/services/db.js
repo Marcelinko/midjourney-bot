@@ -230,6 +230,22 @@ const verifyUser = async (user_id) => {
     }
 }
 
+
+const createGeneratedImage = async (generatedImage) => {
+    try {
+        const client = await MongoClient.connect(db.url);
+        const generatedImagesCollection = client.db(db.name).collection('generated_images');
+        await generatedImagesCollection.insertOne(generatedImage);
+        await client.close();
+    }
+    catch (err) {
+        throw new ErrorObject({
+            message: err.message,
+            statusCode: err.statusCode
+        });
+    }
+}
+
 module.exports = {
     createUserEmailPassword,
     createUserGoogle,
@@ -241,5 +257,6 @@ module.exports = {
     getRefreshToken,
     deleteRefreshToken,
     deleteRefreshTokens,
-    verifyUser
+    verifyUser,
+    createGeneratedImage
 }
