@@ -2,8 +2,12 @@ const { ObjectId } = require('mongodb');
 
 class Job {
     constructor(prompt) {
-        this.job_id = new ObjectId();
+        this.jobId = new ObjectId();
         this.prompt = prompt;
+        this.status = Status.PENDING;
+    }
+    getJobId() {
+        return this.jobId;
     }
     getPrompt() {
         return this.prompt;
@@ -17,6 +21,7 @@ class Job {
 }
 
 const Status = {
+    PENDING: 'pending',
     GENERATING: 'generating',
     UPLOADING: 'uploading',
     READY: 'ready',

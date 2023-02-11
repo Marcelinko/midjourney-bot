@@ -33,6 +33,7 @@ setInterval(function () {
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
     socket.on('subscribeToJobUpdates', (jobId) => {
+        console.log(`User ${socket.id} subscribed to job updates: ${jobId}`);
         socket.join(`job-${jobId}`);
     });
 });
@@ -63,17 +64,13 @@ setInterval(() => {
 
 // }
 
+const findJobById = (jobId) => {
+    return jobs.find(job => job.getJobId().equals(jobId));
+}
 
 const getFirstQueuedJob = () => {
     return jobs.find(job => { return job.getStatus() === Status.QUEUED });
 }
-
-//Creates and returns new job
-const createJob = (prompt) => {
-    return new Job(prompt);
-};
-
-
 
 const giveJobToChannel = (channel, job) => {
     channel.setIsFree(false);
@@ -91,14 +88,21 @@ const freeChannel = (channel) => {
     channel.setIsFree(true);
 }
 
+//TODO: const allQueuedJobs = getAllQueuedJobs(); and then
+// allQueuedJobs.forEach((job, index) => {
+//     socket.emit('queue_position', { job, queuePosition: index + 1 });
+// });
+//this goes inside interval, need socket.on first
 const getAllQueuedJobs = () => {
     return jobs.filter(job => job.getStatus() === Status.QUEUED);
 }
 
-//Queues job
-const queueJob = (job) => {
+//Creates new job
+const createJob = (prompt) => {
+    const job = new Job(prompt);
     job.setStatus(Status.QUEUED);
     jobs.push(job);
+    return job;
 };
 
 //TODO: simplify function
@@ -129,6 +133,7 @@ const getPromptFromMessage = (message) => {
 };
 
 //Updates job status
+//TODO: rewrite function, this only needs to update job status
 const updateJobStatus = (channel, message) => {
     const job = channel.getJob();
     const prompt = getPromptFromMessage(message.content);
@@ -141,12 +146,9 @@ const updateJobStatus = (channel, message) => {
     else if (job.getStatus() === Status.GENERATING) {
         job.setStatus(Status.UPLOADING);
     }
+    console.log(`Job ${job.getJobId()} status: ${job.getStatus()}`);
+    io.emit(`job-${job.getJobId()}`, { status: job.getStatus() });
     return job.status;
-}
-
-//Starts job or queues it if there are no free channels
-const addJobToJobs = async (job) => {
-    queueJob(job);
 }
 
 //Returns channel
@@ -210,6 +212,7 @@ const saveGeneratedImage = (message, job) => {
             //const generatedImage = new GeneratedImage();
             //db.createGeneratedImage(generatedImage).then(job.status = Status.READY);
             job.status = Status.READY;
+            //TODO: this goes to updateJobStatus
         })
     })
 
@@ -218,9 +221,8 @@ const saveGeneratedImage = (message, job) => {
 
 
 module.exports = {
-    queueJob,
     createJob,
-    addJobToJobs,
+    findJobById,
     initializeListenerClient,
     initializeChannelBots,
 }

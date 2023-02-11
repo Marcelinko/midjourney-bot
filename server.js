@@ -11,6 +11,8 @@ const discord = require('./src/api/services/discord');
 
 const app = express();
 const server = require('http').createServer(app);
+const io = require('./src/api/services/socket');
+io.listen(server);
 
 app.use(express.json());
 app.use(cors({

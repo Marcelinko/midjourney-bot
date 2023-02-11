@@ -1,2 +1,8 @@
-const io = require('socket.io')(server);
-module.exports = io;
+const io = require('socket.io')({
+    cors: {
+        origin: "http://localhost:3001",
+        methods: ["GET", "POST"]
+    }
+});
+
+module.exports = io
