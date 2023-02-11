@@ -50,7 +50,6 @@ const sendInteraction = (job, channel) => {
     const config = {
         headers: {"Authorization": channel.bot.getAccessToken()}
     }
-
     discordApi.post("/interactions", data, config).catch(err => console.log("discordApiError: " + err))
 }
 

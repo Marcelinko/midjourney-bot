@@ -11,7 +11,7 @@ const axios = require("./axios.js");
 const {response} = require("express");
 const db = require("./db");
 const Semaphore = require('semaphore');
-let sem = require('semaphore')(1);
+const Bottleneck = require("bottleneck")
 
 let channels = [];
 
@@ -34,28 +34,52 @@ setInterval(function(){
 }, 1000);
 
 
-const jobSemaphore = async () => {
-/*    sem.take(function() {
-        console.log("evo me u semaforju")
-        //check if any job has status QUEUED*/
-        let firstQueuedJob = jobs.find(job => { return job.getStatus() === Status.QUEUED});
+const limiter = new Bottleneck({
+    maxConcurrent: 1,
+    minTime: 1400
+});
 
-            if(firstQueuedJob){
+const jobBottleneck = limiter.wrap(() => {
 
-                //check if there are any free channels
-                const channel = getFreeChannel();
-                if(channel) {
-                    giveJobToChannel(channel, firstQueuedJob);
-                    api.sendInteraction(firstQueuedJob, channel);
+        // let firstQueuedJob = jobs.find(job => { return job.getStatus() === Status.QUEUED});
+        //
+        // if(firstQueuedJob){
+        //     //check if there are any free channels
+        //     const channel = getFreeChannel();
+        //     if(channel) {
+        //         giveJobToChannel(channel, firstQueuedJob);
+        //     } else {
+        //         return;
+        //     }
+        // }
 
-                } else {
-                    //sem.leave();
-                    return;
-                }
-            }
-/*
-    });*/
-};
+});
+
+setInterval(function(){
+    let firstQueuedJob = jobs.find(job => { return job.getStatus() === Status.QUEUED});
+
+    if(firstQueuedJob){
+        //check if there are any free channels
+        const channel = getFreeChannel();
+        if(channel) {
+            giveJobToChannel(channel, firstQueuedJob);
+        } else {
+            return;
+        }
+    }
+}, 1400);
+
+
+
+const blockBot = (bot, time) => {
+    bot.isBlocked = true;
+    console.log("Block: " + bot.getSessionId());
+    setTimeout(() => {
+        bot.isBlocked = false
+        //jobSemaphore();
+    }, time)
+
+}
 
 // const jobSemaphore = async () => {
 //     semaphore.take();
@@ -84,9 +108,16 @@ const createJob = (prompt) => {
 };
 
 
+
 const giveJobToChannel = (channel, job) => {
     channel.setIsFree(false);
     channel.setJob(job);
+    // limiter.submit(() => {
+    //     // Do your request here
+    //     api.sendInteraction(job, channel);
+    // });
+    //blockBot(channel.bot, 1800);
+    api.sendInteraction(job, channel);
 }
 
 const freeChannel = (channel) => {
@@ -96,7 +127,7 @@ const freeChannel = (channel) => {
 
 
 //Queues job
-const queueJob = async (job) => {
+const queueJob = (job) => {
     job.setStatus(Status.QUEUED);
     jobs.push(job);
 };
@@ -108,8 +139,29 @@ const startJob = (job) => {
 };*/
 
 //Returns free channel
+// const getFreeChannel = () => {
+//     return channels.find((channel) => channel.getIsFree());
+// };
+
 const getFreeChannel = () => {
-    return channels.find((channel) => channel.getIsFree());
+    let botWithMostFreeChannels = null;
+    let mostFreeChannels = 0;
+    const uniqueBots = new Set();
+
+    for (const channel of channels) {
+        uniqueBots.add(channel.bot);
+        if (channel.isFree) {
+            const freeChannels = channels.filter(ch => ch.bot === channel.bot && ch.isFree).length;
+            if (freeChannels > mostFreeChannels) {
+                botWithMostFreeChannels = channel.bot;
+                mostFreeChannels = freeChannels;
+            }
+        }
+    }
+
+    if (botWithMostFreeChannels) {
+        return channels.find(channel => channel.bot === botWithMostFreeChannels && channel.isFree);
+    }
 };
 
 //Returns prompt from message
@@ -135,8 +187,8 @@ const updateJobStatus = (channel, message) => {
 
 //Starts job or queues it if there are no free channels
 const addJobToJobs = async (job) => {
-    await queueJob(job);
-    await jobSemaphore(job);
+    queueJob(job);
+    jobBottleneck();
 }
 
 //Returns channel
@@ -155,9 +207,8 @@ const handleMessage = async (message) => {
                 freeChannel(channel);
             } else if(jobStatus === Status.UPLOADING) {
                 saveGeneratedImage(message, channel.job);
-                console.log("free channel")
                 freeChannel(channel);
-                await jobSemaphore();
+                jobBottleneck();
 
             }
         }
@@ -196,7 +247,6 @@ const initializeChannelBots = async () => {
 
 
 const saveGeneratedImage = (message, job) => {
-
     //read photo from message
     const imageUrl = message.attachments.first().url;
     axios.downloadImage(imageUrl).then(res => {
@@ -206,7 +256,6 @@ const saveGeneratedImage = (message, job) => {
             job.status = Status.READY;
         })
     })
-
 
 }
 

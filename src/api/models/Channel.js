@@ -16,7 +16,7 @@ module.exports = class Channel {
     }
 
     getIsFree() {
-        return this.isFree;
+        return !this.bot.getIsBlocked() && this.isFree;
     }
     getChannelId() {
         return this.channelId;
