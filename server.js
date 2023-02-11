@@ -4,14 +4,14 @@ const { Client } = require('discord.js-selfbot-v13');
 const _ = require('lodash');
 const axios = require('axios');
 const cors = require('cors');
-const Jimp = require('jimp');
 const { MongoClient, ObjectId } = require('mongodb');
-const Bottleneck = require('bottleneck');
 const s3 = require('./src/api/services/s3');
 const discord = require('./src/api/services/discord');
 
 
 const app = express();
+const server = require('http').createServer(app);
+
 app.use(express.json());
 app.use(cors({
     origin: 'http://localhost:3001',
@@ -85,18 +85,5 @@ const getImagePreviewUrl = async (job_id) => {
     }
 }
 
-const CompleteJob = async (bot, index, message) => {
-    let job = bot.getJobs()[index];
-    job.image_url = message.attachments.first().url;
-    job.status = "completed";
-    job.messageId = message.id;
-    job.complete_time = new Date();
-    job.image_preview = extractUUID(message.attachments.first().name);
-    await insertJob(job);
-    await uploadPreviewImage(job);
-    bot.removeJob(index);
-    processNextJob();
-}
 
-
-app.listen(PORT, () => console.log(`Server running on port: http://localhost:${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port: http://localhost:${PORT}`));

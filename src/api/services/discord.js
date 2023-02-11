@@ -1,23 +1,19 @@
-const { Client, MessageAttachment} = require("discord.js-selfbot-v13");
+const { Client } = require("discord.js-selfbot-v13");
 const Channel = require("../models/Channel");
 const { Job, Status } = require("../models/Job");
 const Bot = require("../models/Bot");
 const BotConfig = require("../../config/bots");
-const jimp = require("./jimp.js");
 const s3 = require("./s3");
 const api = require("./api");
-const {uploadImage} = require("./s3");
+const { uploadImage } = require("./s3");
 const axios = require("./axios.js");
-const {response} = require("express");
 const db = require("./db");
-const Semaphore = require('semaphore');
-const Bottleneck = require("bottleneck")
+const io = require("./socket");
 
 let channels = [];
-
 let jobs = [];
 
-setInterval(function(){
+setInterval(function () {
     let jobArray = "jobArray: "
     let channelArray = "channelAray: "
     jobs.forEach(job => {
@@ -34,34 +30,20 @@ setInterval(function(){
 }, 1000);
 
 
-const limiter = new Bottleneck({
-    maxConcurrent: 1,
-    minTime: 1400
+io.on('connection', (socket) => {
+    console.log(`User connected: ${socket.id}`);
+    socket.on('subscribeToJobUpdates', (jobId) => {
+        socket.join(`job-${jobId}`);
+    });
 });
 
-const jobBottleneck = limiter.wrap(() => {
+setInterval(() => {
+    let firstQueuedJob = getFirstQueuedJob();
 
-        // let firstQueuedJob = jobs.find(job => { return job.getStatus() === Status.QUEUED});
-        //
-        // if(firstQueuedJob){
-        //     //check if there are any free channels
-        //     const channel = getFreeChannel();
-        //     if(channel) {
-        //         giveJobToChannel(channel, firstQueuedJob);
-        //     } else {
-        //         return;
-        //     }
-        // }
-
-});
-
-setInterval(function(){
-    let firstQueuedJob = jobs.find(job => { return job.getStatus() === Status.QUEUED});
-
-    if(firstQueuedJob){
+    if (firstQueuedJob) {
         //check if there are any free channels
         const channel = getFreeChannel();
-        if(channel) {
+        if (channel) {
             giveJobToChannel(channel, firstQueuedJob);
         } else {
             return;
@@ -71,36 +53,20 @@ setInterval(function(){
 
 
 
-const blockBot = (bot, time) => {
-    bot.isBlocked = true;
-    console.log("Block: " + bot.getSessionId());
-    setTimeout(() => {
-        bot.isBlocked = false
-        //jobSemaphore();
-    }, time)
+// const blockBot = (bot, time) => {
+//     bot.isBlocked = true;
+//     console.log("Block: " + bot.getSessionId());
+//     setTimeout(() => {
+//         bot.isBlocked = false
+//         //jobSemaphore();
+//     }, time)
 
+// }
+
+
+const getFirstQueuedJob = () => {
+    return jobs.find(job => { return job.getStatus() === Status.QUEUED });
 }
-
-// const jobSemaphore = async () => {
-//     semaphore.take();
-//     try {
-//         //check if any job has status QUEUED
-//         jobs.forEach(job => {
-//             if(job.getStats() === Status.QUEUED){
-//                 //check if there are any free channels
-//                 const channel = getFreeChannel();
-//                 if(channel) {
-//                     giveJobToChannel(channel, job);
-//                 } else {
-//                     return;
-//                 }
-//             }
-//         })
-//     } finally {
-//         semaphore.leave();
-//     }
-// };
-
 
 //Creates and returns new job
 const createJob = (prompt) => {
@@ -125,6 +91,9 @@ const freeChannel = (channel) => {
     channel.setIsFree(true);
 }
 
+const getAllQueuedJobs = () => {
+    return jobs.filter(job => job.getStatus() === Status.QUEUED);
+}
 
 //Queues job
 const queueJob = (job) => {
@@ -132,17 +101,7 @@ const queueJob = (job) => {
     jobs.push(job);
 };
 
-/*//Start job
-const startJob = (job) => {
-    jobs.push(job);
-    job.setStatus(Status.GENERATING);
-};*/
-
-//Returns free channel
-// const getFreeChannel = () => {
-//     return channels.find((channel) => channel.getIsFree());
-// };
-
+//TODO: simplify function
 const getFreeChannel = () => {
     let botWithMostFreeChannels = null;
     let mostFreeChannels = 0;
@@ -188,7 +147,6 @@ const updateJobStatus = (channel, message) => {
 //Starts job or queues it if there are no free channels
 const addJobToJobs = async (job) => {
     queueJob(job);
-    jobBottleneck();
 }
 
 //Returns channel
@@ -198,20 +156,18 @@ const getChannelByChannelId = (channelId) => {
 
 const handleMessage = async (message) => {
     //if (message.author.bot) {
-        //Find a channel that has the same channel id as message channel id
-        const channel = getChannelByChannelId(message.channelId);
-        if (channel) {
-            const jobStatus = updateJobStatus(channel, message);
-            //if job is finished upload images to aws and free, if failed just free
-            if(jobStatus === Status.FAILED){
-                freeChannel(channel);
-            } else if(jobStatus === Status.UPLOADING) {
-                saveGeneratedImage(message, channel.job);
-                freeChannel(channel);
-                jobBottleneck();
-
-            }
+    //Find a channel that has the same channel id as message channel id
+    const channel = getChannelByChannelId(message.channelId);
+    if (channel) {
+        const jobStatus = updateJobStatus(channel, message);
+        //if job is finished upload images to aws and free, if failed just free
+        if (jobStatus === Status.FAILED) {
+            freeChannel(channel);
+        } else if (jobStatus === Status.UPLOADING) {
+            saveGeneratedImage(message, channel.job);
+            freeChannel(channel);
         }
+    }
     //}
 }
 
