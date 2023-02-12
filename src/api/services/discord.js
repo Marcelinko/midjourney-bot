@@ -211,8 +211,9 @@ const saveGeneratedImage = (message, job) => {
         s3.uploadImage(message.attachments.first().name, res.data).then(() => {
             //const generatedImage = new GeneratedImage();
             //db.createGeneratedImage(generatedImage).then(job.status = Status.READY);
-            job.status = Status.READY;
             //TODO: this goes to updateJobStatus
+            job.status = Status.READY;
+            io.emit(`job-${job.getJobId()}`, { status: job.getStatus() });
         })
     })
 
