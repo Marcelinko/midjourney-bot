@@ -1,6 +1,4 @@
-<<<<<<< Updated upstream
-//exports functions for handling external API calls
-=======
+
 const {discordApi} = require("./axios");
 const axios = require("axios");
 
@@ -61,4 +59,3 @@ const upscaleImage = (job, bot) => {
 
 
 module.exports = {sendInteraction}
->>>>>>> Stashed changes

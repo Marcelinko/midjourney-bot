@@ -288,7 +288,6 @@ function extractUUID(str) {
     return null;
 }
 
-<<<<<<< Updated upstream
 app.get('/jobs/:job_id/status', async (req, res) => {
     const { job_id } = req.params;
     if (!job_id) return res.status(400).json({ error: 'No job id provided' });
@@ -341,9 +340,6 @@ const getImagePreviewUrl = async (job_id) => {
         return;
     }
 }
-=======
-
->>>>>>> Stashed changes
 
 const CompleteJob = async (bot, index, message) => {
     let job = bot.getJobs()[index];

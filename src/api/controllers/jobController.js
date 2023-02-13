@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 const discord = require("../services/discord");
 const validation = require('../helpers/validation');
 const { Status } = require("../models/Job");
@@ -22,4 +20,3 @@ const createJob = async (req, res) => {
 module.exports = {
     createJob,
 };
->>>>>>> Stashed changes
