@@ -1,7 +1,5 @@
 require('dotenv').config({path: '.env'});
 const express = require('express');
-const { Client } = require('discord.js-selfbot-v13');
-const _ = require('lodash');
 const axios = require('axios');
 const cors = require('cors');
 const { MongoClient, ObjectId } = require('mongodb');
