@@ -4,7 +4,7 @@ class Job {
     constructor(prompt) {
         this.jobId = new ObjectId();
         this.prompt = prompt;
-        this.status = Status.PENDING;
+        this.status = Status.QUEUED;
     }
     getJobId() {
         return this.jobId;
